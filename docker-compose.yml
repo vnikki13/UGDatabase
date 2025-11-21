@@ -1,5 +1,4 @@
 services:
-
   db:
     image: postgres:17
     restart: always
@@ -20,9 +19,9 @@ services:
       - POSTGRES_DB=${POSTGRES_DB?Variable not set}
     ports:
       - "5432:5432"
-    
-  prestart:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+
+  alembic-migration:
+    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
     build:
       context: ./backend
     networks:
@@ -31,11 +30,11 @@ services:
       db:
         condition: service_healthy
         restart: true
-    command: bash scripts/prestart.sh
+    command: alembic upgrade head
+    working_dir: /app
     env_file:
       - .env
     environment:
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - POSTGRES_SERVER=db
       - POSTGRES_PORT=${POSTGRES_PORT}
       - POSTGRES_DB=${POSTGRES_DB}
@@ -43,7 +42,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
 
   backend:
-    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
     restart: always
     build:
       context: ./backend
@@ -52,7 +51,9 @@ services:
     depends_on:
       db: # Ensures 'db' service starts before 'web'
         condition: service_healthy
-        restart: true 
+        restart: true
+      alembic-migration:
+        condition: service_completed_successfully
     environment:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - POSTGRES_SERVER=db

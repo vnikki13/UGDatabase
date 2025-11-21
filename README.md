@@ -17,4 +17,4 @@ This codebase includes the postgres database, api endpoints and admin portal for
 
 
 ## Docker
-- Build images with `docker-compose up --build -d`
+- Build images with `docker compose up --build -d`

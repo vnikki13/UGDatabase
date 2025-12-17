@@ -1,63 +1,119 @@
 from datetime import datetime
+import uuid
 from sqlmodel import Field, SQLModel
 
 
-class Member(SQLModel, table=True):
-    id: int = Field(primary_key=True, index=True)
-    email: str = Field(index=True)
-    name: str
-
-
 # Questions
-class Tag(SQLModel, table=True):
-    id: int | None = Field(default=True, primary_key=True, index=True)
+class TagBase(SQLModel):
     name: str
 
 
-class Question_Categories(SQLModel, table=True):
-    question_id: int | None = Field(
-        default=None, foreign_key='question.id', primary_key=True)
-    category_id: int | None = Field(
-        default=None, foreign_key='category.id', primary_key=True)
+class Tag(TagBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4,
+                          primary_key=True, index=True)
 
 
-class Category(SQLModel, table=True):
-    id: int | None = Field(default=True, primary_key=True, index=True)
-    name: str
+class TagCreate(TagBase):
+    pass
 
 
-class Question(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True, index=True)
+class TagUpdate(TagBase):
+    pass
+
+
+class Tags(SQLModel):
+    data: list[Tag]
+    count: int
+
+
+class Question_Tags(SQLModel, table=True):
+    question_id: uuid.UUID = Field(foreign_key='question.id', primary_key=True)
+    tag_id: uuid.UUID = Field(foreign_key='tag.id', primary_key=True)
+
+
+class QuestionBase(SQLModel):
     prompt: str
-    media_url: str
-    explanation: str
-    tag_id: int = Field(default=None, foreign_key='tag.id')
+    media_url: str | None
+    explanation: str | None
 
 
-class Answer_Choice(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True, index=True)
+class Question(QuestionBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4,
+                          primary_key=True, index=True)
+
+
+class AnswerChoiceBase(SQLModel):
     text: str
     is_correct: bool
-    question_id: int = Field(default=None, foreign_key='question.id')
+
+
+class Answer_Choice(AnswerChoiceBase, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4,
+                          primary_key=True, index=True)
+    question_id: uuid.UUID = Field(foreign_key='question.id')
+
+
+class QuestionList(QuestionBase):
+    tags: list[TagBase]
+    answerChoices: list[AnswerChoiceBase]
+
+
+class QuestionCreate(QuestionBase):
+    tags: list[TagBase]
+    answerChoices: list[AnswerChoiceBase]
+
+
+class QuestionUpdate(QuestionBase):
+    prompt: str | None
+    tags: str | None
+    answerChoices: list[AnswerChoiceBase] | None
+
+
+class Questions(SQLModel):
+    data: list[QuestionList]
+    count: int
 
 
 # Exams
 class Exam(SQLModel, table=True):
-    id: int | None = Field(default=True, primary_key=True, index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4,
+                          primary_key=True, index=True)
     started_at: datetime | None = None
     completed_at: datetime | None = None
     score: int
-    member_id: int | None = Field(default=None, foreign_key='member.id')
+    member_id: str
+
+
+class ExamCreate(SQLModel):
+    member_id: str
+    question_count: int
+    tags: list[Tag] | None
+
+
+class ExamUpdate(SQLModel):
+    pass
+
+
+class Exams(SQLModel):
+    data: list[Exam]
+    count: int
 
 
 class Exam_Question(SQLModel, table=True):
-    id: int | None = Field(default=True, primary_key=True, index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4,
+                          primary_key=True, index=True)
     position: int
-    exam_id: int = Field(default=None, foreign_key='exam.id')
-    question_id: int = Field(default=None, foreign_key='question.id')
+    exam_id: uuid.UUID = Field(foreign_key='exam.id')
+    question_id: uuid.UUID = Field(foreign_key='question.id')
+
+
+class ExamQuestions(SQLModel):
+    data: list[Exam_Question]
+    count: int
 
 
 class Exam_Answer(SQLModel, table=True):
-    id: int | None = Field(default=True, primary_key=True, index=True)
-    exam_question_id: int = Field(default=None, foreign_key='exam_question.id')
-    answer_id: int = Field(default=None, foreign_key='answer_choice.id')
+    id: uuid.UUID = Field(default_factory=uuid.uuid4,
+                          primary_key=True, index=True)
+    exam_question_id: uuid.UUID = Field(foreign_key='exam_question.id')
+    answer_id: uuid.UUID = Field(foreign_key='answer_choice.id')

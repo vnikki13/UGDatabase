@@ -20,7 +20,7 @@ services:
     ports:
       - "5432:5432"
 
-  alembic-migration:
+  prestart:
     image: "${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}"
     build:
       context: ./backend
@@ -30,8 +30,7 @@ services:
       db:
         condition: service_healthy
         restart: true
-    command: alembic upgrade head
-    working_dir: /app
+    command: bash scripts/prestart.sh
     env_file:
       - .env
     environment:
@@ -52,8 +51,10 @@ services:
       db: # Ensures 'db' service starts before 'web'
         condition: service_healthy
         restart: true
-      alembic-migration:
+      prestart:
         condition: service_completed_successfully
+    env_file:
+      - .env
     environment:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - POSTGRES_SERVER=db

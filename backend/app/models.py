@@ -27,19 +27,21 @@ class Tags(SQLModel):
 
 
 class Question_Tags(SQLModel, table=True):
-    question_id: uuid.UUID = Field(foreign_key='question.id', primary_key=True)
+    question_id: uuid.UUID = Field(
+        foreign_key='question.id', primary_key=True, ondelete='CASCADE')
     tag_id: uuid.UUID = Field(foreign_key='tag.id', primary_key=True)
 
 
 class QuestionBase(SQLModel):
     prompt: str
-    media_url: str | None
-    explanation: str | None
+    media_url: str | None = Field(default=None)
+    explanation: str | None = Field(default=None)
 
 
 class Question(QuestionBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4,
                           primary_key=True, index=True)
+    deleted_at: datetime | None = Field(default=None)
 
 
 class AnswerChoiceBase(SQLModel):
@@ -50,27 +52,30 @@ class AnswerChoiceBase(SQLModel):
 class Answer_Choice(AnswerChoiceBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4,
                           primary_key=True, index=True)
-    question_id: uuid.UUID = Field(foreign_key='question.id')
-
-
-class QuestionList(QuestionBase):
-    tags: list[TagBase]
-    answerChoices: list[AnswerChoiceBase]
+    question_id: uuid.UUID = Field(
+        foreign_key='question.id', ondelete='CASCADE')
 
 
 class QuestionCreate(QuestionBase):
-    tags: list[TagBase]
+    tags: list[TagBase] | None = Field(default=None)
     answerChoices: list[AnswerChoiceBase]
+
+
+class QuestionRead(QuestionBase):
+    id: uuid.UUID
+    tags: list[TagBase] | None = Field(default=None)
+    answerChoices: list[AnswerChoiceBase]
+    deleted_at: datetime | None = None
 
 
 class QuestionUpdate(QuestionBase):
     prompt: str | None
-    tags: str | None
+    tags: list[TagBase] | None
     answerChoices: list[AnswerChoiceBase] | None
 
 
 class Questions(SQLModel):
-    data: list[QuestionList]
+    data: list[QuestionRead]
     count: int
 
 

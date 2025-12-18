@@ -3,7 +3,7 @@ This codebase includes the postgres database, api endpoints and admin portal for
 
 ## Run FastAPI
 - Ensure you're in the `backend` folder
-- Run `fastapi dev main.py`
+- Run `fastapi dev app/main.py`
 
 ## Migrations
 - Ensure you're in the `backend` folder

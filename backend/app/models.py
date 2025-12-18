@@ -34,7 +34,8 @@ class Question_Tags(SQLModel, table=True):
 
 class QuestionBase(SQLModel):
     prompt: str
-    media_url: str | None = Field(default=None)
+    media_storage_path: str | None = Field(default=None)
+    media_content_type: str | None = Field(default=None)
     explanation: str | None = Field(default=None)
 
 

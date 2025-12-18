@@ -132,4 +132,58 @@ class Exam_Answer(SQLModel, table=True):
         foreign_key='exam_question.id', ondelete='CASCADE')
     answer_id: uuid.UUID = Field(foreign_key='answer_choice.id')
     started_at: datetime | None = None
+
+
+# Response Models
+class AnswerChoiceResponse(SQLModel):
+    id: uuid.UUID
+    text: str
+    is_correct: bool
+
+
+class ExamQuestionResponse(SQLModel):
+    id: uuid.UUID
+    prompt: str
+    media_url: str | None
+    explanation: str | None
+    position: int
+    answer_choices: list[AnswerChoiceResponse]
+    user_answer_id: uuid.UUID | None = None
+
+
+class ExamResponse(SQLModel):
+    exam_id: uuid.UUID
+    member_id: str
+    started_at: datetime
+    updated_at: datetime | None = None
+    completed_at: datetime | None = None
+    score: int | None = None
+    questions: list[ExamQuestionResponse]
+
+
+class ExamCreateResponse(SQLModel):
+    exam_id: uuid.UUID
+    member_id: str
+    started_at: datetime
+    questions: list[ExamQuestionResponse]
+
+
+class ExamBasicInfo(SQLModel):
+    id: uuid.UUID
+    member_id: str
+    started_at: datetime
+    updated_at: datetime | None
+    completed_at: datetime | None
+    score: int | None
+
+
+class ExamListResponse(SQLModel):
+    exams: list[ExamBasicInfo]
+    count: int
+
+
+class MessageResponse(SQLModel):
+    message: str
+    exam_id: uuid.UUID | None = None
+    count: int | None = None
     completed_at: datetime | None = None

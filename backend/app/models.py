@@ -83,10 +83,12 @@ class Questions(SQLModel):
 class Exam(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4,
                           primary_key=True, index=True)
-    started_at: datetime | None = None
+    started_at: datetime
+    updated_at: datetime | None
     completed_at: datetime | None = None
-    score: int
+    score: int | None = None
     member_id: str
+    deleted_at: datetime | None = Field(default=None)
 
 
 class ExamCreate(SQLModel):
@@ -95,8 +97,14 @@ class ExamCreate(SQLModel):
     tags: list[Tag] | None
 
 
+class ExamAnswerInput(SQLModel):
+    question_id: uuid.UUID
+    answer_id: uuid.UUID
+
+
 class ExamUpdate(SQLModel):
-    pass
+    questions: list[ExamAnswerInput]
+    is_complete: bool
 
 
 class Exams(SQLModel):
@@ -108,7 +116,7 @@ class Exam_Question(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4,
                           primary_key=True, index=True)
     position: int
-    exam_id: uuid.UUID = Field(foreign_key='exam.id')
+    exam_id: uuid.UUID = Field(foreign_key='exam.id', ondelete='CASCADE')
     question_id: uuid.UUID = Field(foreign_key='question.id')
 
 
@@ -120,5 +128,8 @@ class ExamQuestions(SQLModel):
 class Exam_Answer(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4,
                           primary_key=True, index=True)
-    exam_question_id: uuid.UUID = Field(foreign_key='exam_question.id')
+    exam_question_id: uuid.UUID = Field(
+        foreign_key='exam_question.id', ondelete='CASCADE')
     answer_id: uuid.UUID = Field(foreign_key='answer_choice.id')
+    started_at: datetime | None = None
+    completed_at: datetime | None = None

@@ -6,3 +6,4 @@ psycopg2-binary
 pydantic_settings
 alembic
 tenacity
+google-cloud-storage

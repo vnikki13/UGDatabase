@@ -48,7 +48,8 @@ def read_questions(session: SessionDep):
         QuestionRead(
             id=q.id,
             prompt=q.prompt,
-            media_url=q.media_url,
+            media_storage_path=q.media_storage_path,
+            media_content_type=q.media_content_type,
             explanation=q.explanation,
             answerChoices=answer_choices_by_question[q.id],
             tags=tags_by_question[q.id] or None,
@@ -84,7 +85,8 @@ def read_question_by_id(question_id: uuid.UUID, session: SessionDep):
     return QuestionRead(
         id=question.id,
         prompt=question.prompt,
-        media_url=question.media_url,
+        media_storage_path=question.media_storage_path,
+        media_content_type=question.media_content_type,
         explanation=question.explanation,
         answerChoices=answer_choices,
         tags=tags or None,
@@ -143,13 +145,28 @@ def create_question(*, session: SessionDep, question_in: QuestionCreate):
     session.commit()
     session.refresh(question)
 
+    # Refresh answer choices to get their IDs
+    for ac in answer_choices:
+        session.refresh(ac)
+
+    # Fetch tags for this question
+    question_tag_links = session.exec(
+        select(Question_Tags).where(Question_Tags.question_id == question.id)
+    ).all()
+
+    tags = []
+    if question_tag_links:
+        tag_ids = [qt.tag_id for qt in question_tag_links]
+        tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
+
     return QuestionRead(
         id=question.id,
         prompt=question.prompt,
-        media_url=question.media_url,
+        media_storage_path=question.media_storage_path,
+        media_content_type=question.media_content_type,
         explanation=question.explanation,
         answerChoices=answer_choices,
-        tags=list(tags_dict.values()) if tags_dict else None,
+        tags=tags or None,
         deleted_at=question.deleted_at
     )
 
@@ -233,7 +250,8 @@ def update_question(*, session: SessionDep, question_id: uuid.UUID, question_in:
     return QuestionRead(
         id=question.id,
         prompt=question.prompt,
-        media_url=question.media_url,
+        media_storage_path=question.media_storage_path,
+        media_content_type=question.media_content_type,
         explanation=question.explanation,
         answerChoices=answer_choices,
         tags=tags or None,

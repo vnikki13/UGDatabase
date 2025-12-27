@@ -1,5 +1,7 @@
 from datetime import datetime
+from typing import List
 import uuid
+from sqlalchemy import ARRAY, Column, String
 from sqlmodel import Field, SQLModel
 
 
@@ -29,6 +31,12 @@ class Tags(SQLModel):
 class Question_Tags(SQLModel, table=True):
     question_id: uuid.UUID = Field(
         foreign_key='question.id', primary_key=True, ondelete='CASCADE')
+    tag_id: uuid.UUID = Field(foreign_key='tag.id', primary_key=True)
+
+
+class Exam_Tag(SQLModel, table=True):
+    exam_id: uuid.UUID = Field(
+        foreign_key='exam.id', primary_key=True, ondelete='CASCADE')
     tag_id: uuid.UUID = Field(foreign_key='tag.id', primary_key=True)
 
 
@@ -89,13 +97,17 @@ class Exam(SQLModel, table=True):
     completed_at: datetime | None = None
     score: int | None = None
     member_id: str
+    question_count: int
+    filters: List[str] | None = Field(
+        default=None, sa_column=Column(ARRAY(String)))
     deleted_at: datetime | None = Field(default=None)
 
 
 class ExamCreate(SQLModel):
     member_id: str
     question_count: int
-    tags: list[Tag] | None
+    tags: list[Tag] | None = None
+    filters: list[str] | None = None
 
 
 class ExamAnswerInput(SQLModel):
@@ -145,7 +157,8 @@ class AnswerChoiceResponse(SQLModel):
 class ExamQuestionResponse(SQLModel):
     id: uuid.UUID
     prompt: str
-    media_url: str | None
+    media_storage_path: str | None
+    media_content_type: str | None
     explanation: str | None
     position: int
     answer_choices: list[AnswerChoiceResponse]
@@ -159,6 +172,9 @@ class ExamResponse(SQLModel):
     updated_at: datetime | None = None
     completed_at: datetime | None = None
     score: int | None = None
+    question_count: int
+    tags: list[Tag] | None = None
+    filters: list[str] | None = None
     questions: list[ExamQuestionResponse]
 
 
@@ -166,6 +182,9 @@ class ExamCreateResponse(SQLModel):
     exam_id: uuid.UUID
     member_id: str
     started_at: datetime
+    question_count: int
+    tags: list[Tag] | None = None
+    filters: list[str] | None = None
     questions: list[ExamQuestionResponse]
 
 
@@ -176,6 +195,9 @@ class ExamBasicInfo(SQLModel):
     updated_at: datetime | None
     completed_at: datetime | None
     score: int | None
+    question_count: int
+    tags: list[Tag] | None = None
+    filters: list[str] | None = None
 
 
 class ExamListResponse(SQLModel):
@@ -186,5 +208,3 @@ class ExamListResponse(SQLModel):
 class MessageResponse(SQLModel):
     message: str
     exam_id: uuid.UUID | None = None
-    count: int | None = None
-    completed_at: datetime | None = None

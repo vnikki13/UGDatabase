@@ -9,7 +9,7 @@ from ..models import (
     Exam, ExamCreate, ExamUpdate, Question, Question_Tags, Answer_Choice,
     Exam_Question, Exam_Answer, ExamResponse, ExamListResponse,
     ExamCreateResponse, MessageResponse, ExamQuestionResponse,
-    AnswerChoiceResponse, ExamBasicInfo
+    AnswerChoiceResponse, ExamBasicInfo, Exam_Tag, Tag
 )
 
 
@@ -27,6 +27,26 @@ def read_exams_by_user(member_id: str, session: SessionDep):
         .where(Exam.deleted_at.is_(None))
     ).all()
 
+    # Fetch all exam tags in one query
+    exam_ids = [exam.id for exam in exams]
+    exam_tags = session.exec(
+        select(Exam_Tag).where(Exam_Tag.exam_id.in_(exam_ids))
+    ).all() if exam_ids else []
+
+    # Fetch all relevant tags
+    tag_ids = list(set(et.tag_id for et in exam_tags))
+    tags = session.exec(
+        select(Tag).where(Tag.id.in_(tag_ids))
+    ).all() if tag_ids else []
+    tags_by_id = {tag.id: tag for tag in tags}
+
+    # Group tags by exam
+    from collections import defaultdict
+    tags_by_exam = defaultdict(list)
+    for et in exam_tags:
+        if et.tag_id in tags_by_id:
+            tags_by_exam[et.exam_id].append(tags_by_id[et.tag_id])
+
     exam_list = [
         ExamBasicInfo(
             id=exam.id,
@@ -34,7 +54,10 @@ def read_exams_by_user(member_id: str, session: SessionDep):
             started_at=exam.started_at,
             updated_at=exam.updated_at,
             completed_at=exam.completed_at,
-            score=exam.score
+            score=exam.score,
+            question_count=exam.question_count,
+            tags=tags_by_exam.get(exam.id) or None,
+            filters=exam.filters
         ) for exam in exams
     ]
 
@@ -72,7 +95,8 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
             ExamQuestionResponse(
                 id=question.id,
                 prompt=question.prompt,
-                media_url=question.media_url,
+                media_storage_path=question.media_storage_path,
+                media_content_type=question.media_content_type,
                 explanation=question.explanation,
                 position=eq.position,
                 answer_choices=[
@@ -86,6 +110,16 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
             )
         )
 
+    # Fetch tags for this exam
+    exam_tag_links = session.exec(
+        select(Exam_Tag).where(Exam_Tag.exam_id == exam_id)
+    ).all()
+
+    tags = []
+    if exam_tag_links:
+        tag_ids = [et.tag_id for et in exam_tag_links]
+        tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
+
     return ExamResponse(
         exam_id=exam.id,
         member_id=exam.member_id,
@@ -93,6 +127,9 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
         updated_at=exam.updated_at,
         completed_at=exam.completed_at,
         score=exam.score,
+        question_count=exam.question_count,
+        tags=tags or None,
+        filters=exam.filters,
         questions=questions_data
     )
 
@@ -113,14 +150,81 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         statement = select(Question).where(Question.deleted_at.is_(None))
 
     questions = session.exec(statement).all()
+
+    # Apply questions filter if specified
+    if exam_in.filters:
+        # Validate filter values
+        valid_filters = {"used", "missed"}
+        invalid_filters = set(exam_in.filters) - valid_filters
+        if invalid_filters:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid filter values: {', '.join(invalid_filters)}. Valid values are: {', '.join(valid_filters)}."
+            )
+
+        filtered_question_ids = set(q.id for q in questions)
+
+        # Filter to only "used" questions (questions answered in completed exams)
+        if "used" in exam_in.filters:
+            used_questions = session.exec(
+                select(Question.id)
+                .join(Exam_Question, Exam_Question.question_id == Question.id)
+                .join(Exam, Exam.id == Exam_Question.exam_id)
+                .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
+                .where(Exam.member_id == exam_in.member_id)
+                .where(Exam.completed_at.is_not(None))
+                .where(Exam.deleted_at.is_(None))
+            ).all()
+            filtered_question_ids &= set(used_questions)
+
+        # Filter to only "missed" questions (incorrectly answered in completed exams)
+        if "missed" in exam_in.filters:
+            missed_questions = session.exec(
+                select(Question.id)
+                .join(Exam_Question, Exam_Question.question_id == Question.id)
+                .join(Exam, Exam.id == Exam_Question.exam_id)
+                .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
+                .join(Answer_Choice, Answer_Choice.id == Exam_Answer.answer_id)
+                .where(Exam.member_id == exam_in.member_id)
+                .where(Exam.completed_at.is_not(None))
+                .where(Answer_Choice.is_correct.is_(False))
+                .where(Exam.deleted_at.is_(None))
+            ).all()
+            filtered_question_ids &= set(missed_questions)
+
+        # Apply the filter
+        questions = [q for q in questions if q.id in filtered_question_ids]
+
+    # Check if there are any questions available
+    if not questions:
+        raise HTTPException(
+            status_code=404,
+            detail="No questions available to create this exam with the specified criteria"
+        )
+
     num_questions_to_select = min(len(questions), exam_in.question_count)
     selected_questions = random.sample(questions, num_questions_to_select)
 
     # Create exam
-    exam = Exam(member_id=exam_in.member_id, started_at=datetime.now(UTC))
+    exam = Exam(
+        member_id=exam_in.member_id,
+        started_at=datetime.now(UTC),
+        question_count=len(questions),
+        filters=exam_in.filters
+    )
     session.add(exam)
-    session.commit()
-    session.refresh(exam)
+    session.flush()  # Get exam.id without committing
+
+    # Create exam-tag relationships
+    if exam_in.tags:
+        exam_tags = [
+            Exam_Tag(
+                exam_id=exam.id,
+                tag_id=tag.id
+            )
+            for tag in exam_in.tags
+        ]
+        session.add_all(exam_tags)
 
     # Create exam_question entries
     for position, question in enumerate(selected_questions, start=1):
@@ -131,6 +235,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         )
         session.add(exam_question)
     session.commit()
+    session.refresh(exam)
 
     # Build response with questions and answer choices
     questions_data = []
@@ -144,7 +249,8 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
             ExamQuestionResponse(
                 id=question.id,
                 prompt=question.prompt,
-                media_url=question.media_url,
+                media_storage_path=question.media_storage_path,
+                media_content_type=question.media_content_type,
                 explanation=question.explanation,
                 position=position,
                 answer_choices=[
@@ -157,10 +263,23 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
             )
         )
 
+    # Fetch tags for response
+    exam_tag_links = session.exec(
+        select(Exam_Tag).where(Exam_Tag.exam_id == exam.id)
+    ).all()
+
+    tags = []
+    if exam_tag_links:
+        tag_ids = [et.tag_id for et in exam_tag_links]
+        tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
+
     return ExamCreateResponse(
         exam_id=exam.id,
         member_id=exam.member_id,
         started_at=exam.started_at,
+        question_count=exam.question_count,
+        tags=tags or None,
+        filters=exam.filters,
         questions=questions_data
     )
 

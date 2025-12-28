@@ -6,7 +6,7 @@ from sqlmodel import select, func
 
 from ..db.database import SessionDep
 from ..models import (
-    Exam, ExamCreate, ExamUpdate, Question, Question_Tags, Answer_Choice,
+    Exam, ExamCreate, ExamUpdate, Question, Question_Tag, Answer_Choice,
     Exam_Question, Exam_Answer, ExamResponse, ExamListResponse,
     ExamCreateResponse, MessageResponse, ExamQuestionResponse,
     AnswerChoiceResponse, ExamBasicInfo, Exam_Tag, Tag,
@@ -74,19 +74,19 @@ def get_missed_questions(member_id: str, session: SessionDep):
         answer_choices_by_question[ac.question_id].append(ac)
 
     # Fetch tags for all questions
-    question_tags = session.exec(
-        select(Question_Tags).where(
-            Question_Tags.question_id.in_(question_ids))
+    question_tag = session.exec(
+        select(Question_Tag).where(
+            Question_Tag.question_id.in_(question_ids))
     ).all()
 
-    tag_ids = list(set(qt.tag_id for qt in question_tags))
+    tag_ids = list(set(qt.tag_id for qt in question_tag))
     tags = session.exec(
         select(Tag).where(Tag.id.in_(tag_ids))
     ).all() if tag_ids else []
     tags_by_id = {tag.id: tag for tag in tags}
 
     tags_by_question = defaultdict(list)
-    for qt in question_tags:
+    for qt in question_tag:
         if qt.tag_id in tags_by_id:
             tags_by_question[qt.question_id].append(tags_by_id[qt.tag_id])
 
@@ -168,7 +168,27 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
 
     questions_data = []
     for eq in exam_questions:
-        question = session.get(Question, eq.question_id)
+        # Fetch the specific version of the question that was shown in the exam
+        # If the question has been updated, we still show the original version
+        if eq.question_version == 1:
+            # This is the original version
+            question = session.get(Question, eq.question_id)
+        else:
+            # Find the specific version by checking version and base_question_id
+            # First try to find by exact ID (in case it's a later version)
+            question = session.get(Question, eq.question_id)
+            if question and question.version != eq.question_version:
+                # The question ID doesn't match the version, search for the right version
+                base_id = question.base_question_id if question.base_question_id else eq.question_id
+                question = session.exec(
+                    select(Question).where(
+                        Question.version == eq.question_version
+                    ).where(
+                        (Question.id == base_id) | (
+                            Question.base_question_id == base_id)
+                    )
+                ).first()
+
         if not question:
             continue
 
@@ -231,8 +251,8 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         tag_ids = [tag.id for tag in exam_in.tags]
         statement = (
             select(Question)
-            .join(Question_Tags)
-            .where(Question_Tags.tag_id.in_(tag_ids))
+            .join(Question_Tag)
+            .where(Question_Tag.tag_id.in_(tag_ids))
             .where(Question.deleted_at.is_(None))
             .distinct()
         )
@@ -316,11 +336,12 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         ]
         session.add_all(exam_tags)
 
-    # Create exam_question entries
+    # Create exam_question entries with version tracking
     for position, question in enumerate(selected_questions, start=1):
         exam_question = Exam_Question(
             exam_id=exam.id,
             question_id=question.id,
+            question_version=question.version,
             position=position
         )
         session.add(exam_question)

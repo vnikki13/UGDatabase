@@ -63,7 +63,7 @@ def generate_download_url(
         raise HTTPException(status_code=404, detail="Question has no media")
 
     # Get the blob from storage
-    blob = bucket.blob(f'{question.media_storage_path}\\')
+    blob = bucket.blob(f'{question.media_storage_path}')
 
     # Check if blob exists
     if not blob.exists():
@@ -86,6 +86,6 @@ def generate_download_url(
 
 # curl - X PUT \
 #     - H "Content-Type: image/png" \
-#     - H "Authorization: Bearer $ACCESS_TOKEN" \
+#     - H "Authorization: Bearer $(gcloud auth print-access-token)" \
 #     --upload-file <IMAGE PATH> \
 #     "<SIGNED_UPLOAD_URL>"

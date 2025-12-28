@@ -28,7 +28,7 @@ class Tags(SQLModel):
     count: int
 
 
-class Question_Tags(SQLModel, table=True):
+class Question_Tag(SQLModel, table=True):
     question_id: uuid.UUID = Field(
         foreign_key='question.id', primary_key=True, ondelete='CASCADE')
     tag_id: uuid.UUID = Field(foreign_key='tag.id', primary_key=True)
@@ -50,6 +50,11 @@ class QuestionBase(SQLModel):
 class Question(QuestionBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4,
                           primary_key=True, index=True)
+    version: int = Field(default=1)
+    base_question_id: uuid.UUID | None = Field(
+        default=None, foreign_key='question.id')
+    created_at: datetime = Field(default_factory=lambda: datetime.now(datetime.now().astimezone().tzinfo))
+    updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
 
 
@@ -93,9 +98,9 @@ class QuestionReadWithUserAnswer(QuestionBase):
 
 
 class QuestionUpdate(QuestionBase):
-    prompt: str | None
-    tags: list[TagBase] | None
-    answerChoices: list[AnswerChoiceBase] | None
+    prompt: str | None = None
+    tags: list[TagBase] | None = None
+    answerChoices: list[AnswerChoiceBase] | None = None
 
 
 class Questions(SQLModel):
@@ -146,6 +151,7 @@ class Exam_Question(SQLModel, table=True):
     position: int
     exam_id: uuid.UUID = Field(foreign_key='exam.id', ondelete='CASCADE')
     question_id: uuid.UUID = Field(foreign_key='question.id')
+    question_version: int = Field(default=1)
 
 
 class ExamQuestions(SQLModel):

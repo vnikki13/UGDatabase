@@ -70,10 +70,25 @@ class QuestionCreate(QuestionBase):
     answerChoices: list[AnswerChoiceBase]
 
 
+# Response Models
+class AnswerChoiceResponse(SQLModel):
+    id: uuid.UUID
+    text: str
+    is_correct: bool
+
+
 class QuestionRead(QuestionBase):
     id: uuid.UUID
     tags: list[TagBase] | None = Field(default=None)
-    answerChoices: list[AnswerChoiceBase]
+    answerChoices: list[AnswerChoiceResponse]
+    deleted_at: datetime | None = None
+
+
+class QuestionReadWithUserAnswer(QuestionBase):
+    id: uuid.UUID
+    tags: list[TagBase] | None = Field(default=None)
+    answerChoices: list[AnswerChoiceResponse]
+    user_answer_id: uuid.UUID | None = None
     deleted_at: datetime | None = None
 
 

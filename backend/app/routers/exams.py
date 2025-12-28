@@ -2,21 +2,111 @@ from datetime import UTC, datetime
 import uuid
 import random
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import select, func
 
 from ..db.database import SessionDep
 from ..models import (
     Exam, ExamCreate, ExamUpdate, Question, Question_Tags, Answer_Choice,
     Exam_Question, Exam_Answer, ExamResponse, ExamListResponse,
     ExamCreateResponse, MessageResponse, ExamQuestionResponse,
-    AnswerChoiceResponse, ExamBasicInfo, Exam_Tag, Tag
+    AnswerChoiceResponse, ExamBasicInfo, Exam_Tag, Tag,
+    QuestionReadWithUserAnswer
 )
+from collections import defaultdict
 
 
 router = APIRouter(
     prefix='/exams',
     tags=['exams']
 )
+
+
+@router.get('/user/{member_id}/missed-questions', response_model=list[QuestionReadWithUserAnswer])
+def get_missed_questions(member_id: str, session: SessionDep):
+    """
+    Get all questions that were most recently answered incorrectly by the user.
+    Only returns the most recent incorrect answer for each question.
+    """
+
+    # Get all incorrectly answered questions with their exam completion timestamp and answer_id
+    results = session.exec(
+        select(
+            Question.id,
+            func.max(Exam.completed_at),
+            Exam_Answer.answer_id
+        )
+        .join(Exam_Question, Exam_Question.question_id == Question.id)
+        .join(Exam, Exam.id == Exam_Question.exam_id)
+        .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
+        .join(Answer_Choice, Answer_Choice.id == Exam_Answer.answer_id)
+        .where(Exam.member_id == member_id)
+        .where(Exam.completed_at.is_not(None))
+        .where(Answer_Choice.is_correct.is_(False))
+        .where(Exam.deleted_at.is_(None))
+        .where(Question.deleted_at.is_(None))
+        .group_by(Question.id, Exam.completed_at, Exam_Answer.answer_id)
+        .order_by(Exam.completed_at.desc())
+    ).all()
+
+    if not results:
+        return []
+
+    # Get the question IDs and create a map of question_id to answer_id
+    question_ids = [r[0] for r in results]
+    user_answers = {r[0]: r[2] for r in results}
+
+    # Fetch the full question details
+    questions = session.exec(
+        select(Question).where(Question.id.in_(question_ids))
+    ).all()
+
+    # Create a map for ordering
+    question_order = {qid: idx for idx, (qid, _, _) in enumerate(results)}
+    questions_sorted = sorted(questions, key=lambda q: question_order[q.id])
+
+    # Fetch answer choices for all questions
+    answer_choices = session.exec(
+        select(Answer_Choice).where(
+            Answer_Choice.question_id.in_(question_ids))
+    ).all()
+    answer_choices_by_question = defaultdict(list)
+    for ac in answer_choices:
+        answer_choices_by_question[ac.question_id].append(ac)
+
+    # Fetch tags for all questions
+    question_tags = session.exec(
+        select(Question_Tags).where(
+            Question_Tags.question_id.in_(question_ids))
+    ).all()
+
+    tag_ids = list(set(qt.tag_id for qt in question_tags))
+    tags = session.exec(
+        select(Tag).where(Tag.id.in_(tag_ids))
+    ).all() if tag_ids else []
+    tags_by_id = {tag.id: tag for tag in tags}
+
+    tags_by_question = defaultdict(list)
+    for qt in question_tags:
+        if qt.tag_id in tags_by_id:
+            tags_by_question[qt.question_id].append(tags_by_id[qt.tag_id])
+
+    # Build response
+    questions_data = [
+        QuestionReadWithUserAnswer(
+            id=q.id,
+            prompt=q.prompt,
+            media_storage_path=q.media_storage_path,
+            media_content_type=q.media_content_type,
+            explanation=q.explanation,
+            answerChoices=answer_choices_by_question[q.id],
+            tags=tags_by_question[q.id] or None,
+            user_answer_id=user_answers.get(q.id),
+            deleted_at=q.deleted_at
+        )
+        for q in questions_sorted
+    ]
+
+    return questions_data
 
 
 @router.get('/user/{member_id}', response_model=ExamListResponse)

@@ -1,6 +1,6 @@
 import uuid
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import select, func
 
 from ..db.database import SessionDep
 from ..models import Tag, TagBase, TagCreate, TagUpdate
@@ -27,6 +27,18 @@ def read_tag_by_id(tag_id: uuid.UUID, session: SessionDep):
 @router.post('/', response_model=TagCreate)
 def create_tag(*, session: SessionDep, tag_in: TagCreate):
     tag_create = TagCreate.model_validate(tag_in)
+    
+    # Check if a tag with the same name (case-insensitive) already exists
+    existing_tag = session.exec(
+        select(Tag).where(func.lower(Tag.name) == tag_create.name.lower())
+    ).first()
+    
+    if existing_tag:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tag '{existing_tag.name}' already exists"
+        )
+    
     tag = Tag.model_validate(tag_create)
     session.add(tag)
     session.commit()

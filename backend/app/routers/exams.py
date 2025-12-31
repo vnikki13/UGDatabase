@@ -475,7 +475,11 @@ def update_exam(*, session: SessionDep, exam_id: uuid.UUID, exam_in: ExamUpdate)
     session.add(exam)
     session.commit()
 
-    return MessageResponse(message="Exam answers saved successfully", exam_id=exam_id)
+    return MessageResponse(
+        message="Exam answers saved successfully",
+        exam_id=exam_id,
+        score=exam.score if exam_in.is_complete else None
+    )
 
 
 @router.delete('/{exam_id}', response_model=MessageResponse)

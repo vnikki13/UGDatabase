@@ -53,7 +53,8 @@ class Question(QuestionBase, table=True):
     version: int = Field(default=1)
     base_question_id: uuid.UUID | None = Field(
         default=None, foreign_key='question.id')
-    created_at: datetime = Field(default_factory=lambda: datetime.now(datetime.now().astimezone().tzinfo))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(
+        datetime.now().astimezone().tzinfo))
     updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
 
@@ -229,3 +230,4 @@ class ExamListResponse(SQLModel):
 class MessageResponse(SQLModel):
     message: str
     exam_id: uuid.UUID | None = None
+    score: int | None = None

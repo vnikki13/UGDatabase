@@ -261,34 +261,26 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
 
     questions = session.exec(statement).all()
 
-    # Apply questions filter if specified
-    if exam_in.filters:
+    # Apply questions filter - if no filters specified, apply all filters
+    filters_to_apply = exam_in.filters if exam_in.filters else [
+        "missed", "correct", "unanswered"]
+
+    if filters_to_apply:
         # Validate filter values
-        valid_filters = {"used", "missed"}
-        invalid_filters = set(exam_in.filters) - valid_filters
+        valid_filters = {"missed", "correct", "unanswered"}
+        invalid_filters = set(filters_to_apply) - valid_filters
         if invalid_filters:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid filter values: {', '.join(invalid_filters)}. Valid values are: {', '.join(valid_filters)}."
             )
 
-        filtered_question_ids = set(q.id for q in questions)
-
-        # Filter to only "used" questions (questions answered in completed exams)
-        if "used" in exam_in.filters:
-            used_questions = session.exec(
-                select(Question.id)
-                .join(Exam_Question, Exam_Question.question_id == Question.id)
-                .join(Exam, Exam.id == Exam_Question.exam_id)
-                .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
-                .where(Exam.member_id == exam_in.member_id)
-                .where(Exam.completed_at.is_not(None))
-                .where(Exam.deleted_at.is_(None))
-            ).all()
-            filtered_question_ids &= set(used_questions)
+        # Start with empty set and union all filter results
+        filtered_question_ids = set()
+        available_question_ids = set(q.id for q in questions)
 
         # Filter to only "missed" questions (incorrectly answered in completed exams)
-        if "missed" in exam_in.filters:
+        if "missed" in filters_to_apply:
             missed_questions = session.exec(
                 select(Question.id)
                 .join(Exam_Question, Exam_Question.question_id == Question.id)
@@ -300,9 +292,38 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
                 .where(Answer_Choice.is_correct.is_(False))
                 .where(Exam.deleted_at.is_(None))
             ).all()
-            filtered_question_ids &= set(missed_questions)
+            filtered_question_ids |= set(missed_questions)
 
-        # Apply the filter
+        # Filter to only "correct" questions (correctly answered in completed exams)
+        if "correct" in filters_to_apply:
+            correct_questions = session.exec(
+                select(Question.id)
+                .join(Exam_Question, Exam_Question.question_id == Question.id)
+                .join(Exam, Exam.id == Exam_Question.exam_id)
+                .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
+                .join(Answer_Choice, Answer_Choice.id == Exam_Answer.answer_id)
+                .where(Exam.member_id == exam_in.member_id)
+                .where(Exam.completed_at.is_not(None))
+                .where(Answer_Choice.is_correct.is_(True))
+                .where(Exam.deleted_at.is_(None))
+            ).all()
+            filtered_question_ids |= set(correct_questions)
+
+        # Filter to only "unanswered" questions (never been in an exam)
+        if "unanswered" in filters_to_apply:
+            used_questions = session.exec(
+                select(Question.id)
+                .join(Exam_Question, Exam_Question.question_id == Question.id)
+                .join(Exam, Exam.id == Exam_Question.exam_id)
+                .where(Exam.member_id == exam_in.member_id)
+                .where(Exam.deleted_at.is_(None))
+            ).all()
+            used_set = set(used_questions)
+            # Add questions that have never been in an exam
+            unanswered = available_question_ids - used_set
+            filtered_question_ids |= unanswered
+
+        # Apply the filter - only keep questions that match at least one filter
         questions = [q for q in questions if q.id in filtered_question_ids]
 
     # Check if there are any questions available

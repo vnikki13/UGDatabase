@@ -1,7 +1,7 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import tags, questions, exams, media
+from app.routers import tags, questions, exams, media, ghost
 from app.core.config import settings
 
 
@@ -26,6 +26,7 @@ api_router.include_router(tags.router)
 api_router.include_router(questions.router)
 api_router.include_router(exams.router)
 api_router.include_router(media.router)
+api_router.include_router(ghost.router)
 
 app.include_router(api_router)
 

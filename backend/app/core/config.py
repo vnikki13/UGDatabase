@@ -41,5 +41,8 @@ class Settings(BaseSettings):
     GCS_BUCKET_NAME: str = ""
     GCS_PROJECT_ID: str = ""
 
+    GHOST_URL: str = ""
+    GHOST_ADMIN_KEY: str = ""
+
 
 settings = Settings()

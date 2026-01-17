@@ -18,3 +18,7 @@ This codebase includes the postgres database, api endpoints and admin portal for
 
 ## Docker
 - Build images with `docker compose up --build -d`
+
+## Installing dependencies
+- The backend uses [uv]() to manage dependencies. When getting setup for the first time, navigate to `backend` and run `uv sync`. This will download Python if necessary, create the `.venv` directory, and install dependencies from `pyproject.toml`.
+- When adding new dependencies to the backend, add them to `pyproject.toml` and make sure to run `uv lock` to update the lockfile.

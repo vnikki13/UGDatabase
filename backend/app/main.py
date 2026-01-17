@@ -1,8 +1,8 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import tags, questions, exams, media
-from .core.config import settings
+from app.routers import tags, questions, exams, media
+from app.core.config import settings
 
 
 app = FastAPI(

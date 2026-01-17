@@ -1,9 +1,9 @@
 import uuid
 from fastapi import APIRouter, HTTPException
 from datetime import timedelta
-from ..db.database import SessionDep
-from ..models import Question
-from ..storage import bucket
+from app.db.database import SessionDep
+from app.models import Question
+from app.storage import bucket
 
 
 router = APIRouter(

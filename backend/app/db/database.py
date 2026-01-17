@@ -1,7 +1,7 @@
 from typing import Annotated
 from fastapi import Depends
 from sqlmodel import Session, create_engine, SQLModel
-from ..core.config import settings
+from app.core.config import settings
 
 
 # The engine is the single object that we share with all the code.

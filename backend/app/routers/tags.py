@@ -2,8 +2,8 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select, func
 
-from ..db.database import SessionDep
-from ..models import Tag, TagBase, TagCreate, TagUpdate
+from app.db.database import SessionDep
+from app.models import Tag, TagBase, TagCreate, TagUpdate
 
 
 router = APIRouter(

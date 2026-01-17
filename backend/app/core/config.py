@@ -39,6 +39,7 @@ class Settings(BaseSettings):
 
     DOCKER_IMAGE_BACKEND: str = ""
     GCS_BUCKET_NAME: str = ""
+    GCS_PROJECT_ID: str = ""
 
 
 settings = Settings()

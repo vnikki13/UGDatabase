@@ -4,8 +4,8 @@ import random
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select, func
 
-from ..db.database import SessionDep
-from ..models import (
+from app.db.database import SessionDep
+from app.models import (
     Exam, ExamCreate, ExamUpdate, Question, Question_Tag, Answer_Choice,
     Exam_Question, Exam_Answer, ExamResponse, ExamListResponse,
     ExamCreateResponse, MessageResponse, ExamQuestionResponse,

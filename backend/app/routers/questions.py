@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, HTTPException
 from sqlmodel import func, select
 
-from ..db.database import SessionDep
+from app.db.database import SessionDep
 from app.models import Answer_Choice, Question, QuestionCreate, QuestionRead, QuestionUpdate, Questions, Tag, Question_Tag
 
 

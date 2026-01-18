@@ -1,36 +1,29 @@
 import { GoogleLogin, type CredentialResponse } from '@react-oauth/google'
-import { useSessionToken } from '../hooks/useSessionToken'
 import Alert from '@mui/material/Alert'
 import { useState } from 'react'
+import { useNavigate, useRouter } from '@tanstack/react-router'
+import { useAuth } from '../auth'
 
+const dashboard = '/' as const
 
 export const LoginButton = () => {
-    const { saveToken, getUserFromToken, logout } = useSessionToken()
-    const [showSuccess, setShowSuccess] = useState(false)
+    const auth = useAuth()
+    const router = useRouter()
+    const navigate = useNavigate()
     const [showError, setShowError] = useState(false)
 
     const handleSuccess = async (response: CredentialResponse) => {
         const token = response?.credential
         if (!token) return
-        saveToken(token)
-        const user = getUserFromToken()
 
-        if (!user?.email) {
-            setShowError(true)
-            return
-        }
-
-        console.log('User:', user)
+        setShowError(false)
 
         try {
-            const apiResponse = await fetch(`http://localhost:8000/api/v1/ghost/users/${user.email}`)            
-            if (apiResponse.ok) {
-                setShowSuccess(true)
-            } else {
-                setShowError(true)
-            }
+            await auth.login(token)
+            await router.invalidate()
+            await navigate({ to: dashboard })
         } catch (error) {
-            console.error('Authorization check failed:', error)
+            console.error('Login failed:', error)
             setShowError(true)
         }
     }
@@ -41,19 +34,15 @@ export const LoginButton = () => {
 
     return (
         <>
-            <GoogleLogin onSuccess={handleSuccess} onError={handleError} />
-            {showSuccess && (
-                <Alert severity="success" onClose={() => setShowSuccess(false)}>
-                    Here is a gentle confirmation that your action was successful.
-                </Alert>
-            )}
+            <GoogleLogin
+                onSuccess={handleSuccess}
+                onError={handleError}
+            />
             {showError && (
                 <Alert severity="error" onClose={() => setShowError(false)}>
                     You do not have the permission to login.
                 </Alert>
             )}
-            <div style={{ height: 20 }}></div>
-            <button onClick={logout}>Logout</button>
         </>
     )
 }

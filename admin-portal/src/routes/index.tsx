@@ -1,15 +1,26 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import LoginButton from '../components/LoginButton'
+import { z } from 'zod'
+
+const fallback = '/dashboard' as const
 
 export const Route = createFileRoute('/')({
-    component: Index,
+  validateSearch: z.object({
+    redirect: z.string().optional().catch(''),
+  }),
+  beforeLoad: ({ context, search }) => {
+    if (context.auth.isAuthenticated) {
+      throw redirect({ to: search.redirect || fallback })
+    }
+  },
+  component: RouteComponent,
 })
 
-function Index() {
-    return (
-        <div className="p-2">
-            <h2>Welcome Nikki!</h2>
-            <LoginButton />
-        </div>
-    )
+function RouteComponent() {
+  return (
+    <>
+      <h2>Login page</h2>
+      <LoginButton />
+    </>
+  )
 }

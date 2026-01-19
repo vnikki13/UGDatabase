@@ -98,7 +98,7 @@ export function Questions() {
 
     return (
         <>
-            <h3>Questions</h3>
+            <h1 style={{justifySelf:'center'}}>Questions</h1>
             <div style={{ height: 500 }}>
                 <AgGridReact
                     rowData={rowData}
@@ -113,7 +113,7 @@ export function Questions() {
                             'lineHeight': 'unset',
                             'padding': '10px'
                         },
-                        minWidth: 200
+                        minWidth: 100
                         
                     }}
                     enableCellSpan={true}

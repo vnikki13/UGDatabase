@@ -4,6 +4,7 @@ import { useAuth } from "./auth"
 import { routeTree } from "./routeTree.gen"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'; 
+import Box from "@mui/material/Box"
 
 // Create a new router instance
 const router = createRouter({
@@ -27,11 +28,11 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 export function App() {
     const auth = useAuth()
     return (
-        <>
+        <Box sx={{marginX: 10}}>
             <GoogleOAuthProvider clientId={import.meta.env.VITE_GCS_CLIENT_ID}>
-                <RouterProvider router={router} context={{ auth }} />
+            <RouterProvider router={router} context={{ auth }} />
             </GoogleOAuthProvider>
             <ReactQueryDevtools initialIsOpen={false} />
-        </>
+        </Box>
     )
 }

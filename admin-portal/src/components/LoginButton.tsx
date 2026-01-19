@@ -36,8 +36,8 @@ export const LoginButton = () => {
                 onError={handleError}
             />
             {showError && (
-                <Alert severity="error" onClose={() => setShowError(false)}>
-                    You do not have the permission to login.
+                <Alert sx={{margin: 5}} severity="error" onClose={() => setShowError(false)}>
+                    You do not have permission to access this dashboard.
                 </Alert>
             )}
         </>

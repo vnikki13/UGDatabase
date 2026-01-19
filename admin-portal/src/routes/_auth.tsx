@@ -3,6 +3,7 @@ import { Avatar } from '../components/Avatar'
 import { LogoutButton } from '../components/LogoutButton'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import { Logo } from '../components/Logo'
 
 export const Route = createFileRoute('/_auth')({
     beforeLoad: ({ context }) => {
@@ -30,6 +31,7 @@ function AuthLayout() {
                     borderColor: 'divider'
                 }}
             >
+                <Logo />
                 <Typography variant="h5" component="h1">
                     Ultrasound Guidance Admin Dashboard
                 </Typography>

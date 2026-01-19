@@ -1,6 +1,7 @@
 import { jwtDecode } from "jwt-decode"
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react"
 import { googleLogout } from "@react-oauth/google"
+import { getAuthorizedUser } from "./api";
 
 // Interface for decoded JWT token payload
 interface DecodedUser {
@@ -53,7 +54,7 @@ function setStoredUser(user: DecodedUser | null) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<DecodedUser | null>(getStoredUser())
-    const isAuthenticated = !!user
+    const isAuthorized = !!user
 
     const logout = useCallback(async () => {
         googleLogout()
@@ -62,31 +63,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     const login = useCallback(async (token: string): Promise<void> => {
-        try {
-            // Decode the JWT token and extract user profile info
-            const user = jwtDecode<DecodedUser>(token)
-
-            // Use environment variable for API URL, fallback to localhost
-            const apiUrl = import.meta.env.VITE_API_URL
-            const result = await fetch(`${apiUrl}/ghost/users/${user.email}`)
-
-            if (!result.ok) {
-                throw new Error(`Authorization failed: ${result.status} ${result.statusText}`)
-            }
-
-            setStoredUser(user)
-            setUser(user)
-        } catch (error) {
-            console.error('Login error:', error)
-            // Clear any stored user data on failure
-            setStoredUser(null)
-            setUser(null)
-            throw new Error('Authentication failed. Please try again.')
-        }
+        const user = jwtDecode<DecodedUser>(token)
+        return getAuthorizedUser(user.email)
+            .then(() => {
+                setStoredUser(user)
+                setUser(user)
+            })
+            .catch(() => {
+                setStoredUser(null)
+                setUser(null)
+                return Promise.reject()
+            })
     }, [])
 
     return (
-        <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+        <AuthContext.Provider value={{ isAuthenticated: isAuthorized, user, login, logout }}>
             {children}
         </AuthContext.Provider>
     )

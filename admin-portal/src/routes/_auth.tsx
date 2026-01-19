@@ -1,5 +1,8 @@
-import { createFileRoute, Outlet, redirect, useNavigate, useRouter } from '@tanstack/react-router'
-import { useAuth } from '../auth'
+import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { Avatar } from '../components/Avatar'
+import { LogoutButton } from '../components/LogoutButton'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
 
 export const Route = createFileRoute('/_auth')({
     beforeLoad: ({ context }) => {
@@ -14,34 +17,31 @@ export const Route = createFileRoute('/_auth')({
 })
 
 function AuthLayout() {
-    const router = useRouter()
-    const navigate = useNavigate()
-    const auth = useAuth()
-
-    const handleLogout = () => {
-        auth.logout()
-        router.invalidate()
-        navigate({ to: '/' })
-    }
-
     return (
-        <div className="p-2 h-full">
-            <h1>Authenticated Route</h1>
-            <p>This route's content is only visible to authenticated users.</p>
-            <ul className="py-2 flex gap-2">
-                <li>
-                    <button
-                        type="button"
-                        className="hover:underline"
-                        onClick={handleLogout}
-                    >
-                        Logout
-                    </button>
-                </li>
-            </ul>
-            <hr />
-            <Outlet />
-        </div>
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Box
+                component="header"
+                sx={{
+                    p: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    borderBottom: 1,
+                    borderColor: 'divider'
+                }}
+            >
+                <Typography variant="h5" component="h1">
+                    Ultrasound Guidance Admin Dashboard
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar />
+                    <LogoutButton />
+                </Box>
+            </Box>
+            <Box component="main" sx={{ flex: 1, p: 2 }}>
+                <Outlet />
+            </Box>
+        </Box>
     )
 
 }

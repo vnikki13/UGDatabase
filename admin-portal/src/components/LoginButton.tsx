@@ -15,17 +15,14 @@ export const LoginButton = () => {
     const handleSuccess = async (response: CredentialResponse) => {
         const token = response?.credential
         if (!token) return
-
-        setShowError(false)
-
-        try {
-            await auth.login(token)
-            await router.invalidate()
-            await navigate({ to: dashboard })
-        } catch (error) {
-            console.error('Login failed:', error)
-            setShowError(true)
-        }
+        auth.login(token)
+            .then(async () => {
+                await router.invalidate()
+                await navigate({ to: dashboard })
+            })
+            .catch(() => {
+                setShowError(true)
+            })
     }
 
     const handleError = () => {

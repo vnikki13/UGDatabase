@@ -3,6 +3,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { useAuth } from "./auth"
 import { routeTree } from "./routeTree.gen"
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools"
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'; 
 
 // Create a new router instance
 const router = createRouter({
@@ -19,6 +20,9 @@ declare module '@tanstack/react-router' {
         router: typeof router
     }
 }
+
+// Register all AgGrid community features
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 export function App() {
     const auth = useAuth()

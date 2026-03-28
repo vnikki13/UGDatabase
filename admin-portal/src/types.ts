@@ -4,6 +4,8 @@ export interface Questions {
 }
 
 export interface Question {
+  text: any
+  is_correct: any
   prompt: string
   media_storage_path: null | string
   media_content_type: null | string

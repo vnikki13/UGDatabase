@@ -1,7 +1,16 @@
-import type { Questions, Tag } from './types'
+import type { Questions, Question, Tag } from './types'
 import axios, { AxiosError } from 'axios'
 
 export interface CreateQuestionRequest {
+  prompt: string
+  media_storage_path?: string | null
+  media_content_type?: string | null
+  explanation?: string
+  tags: Tag[]
+  answerChoices: { text: string; is_correct: boolean }[]
+}
+
+export interface UpdateQuestionRequest {
   prompt: string
   media_storage_path?: string | null
   media_content_type?: string | null
@@ -20,11 +29,15 @@ export const getQuestions = async (): Promise<Questions> => {
   return (await axios.get(`${API_URL}/questions/`)).data
 }
 
+export const getQuestion = async (questionId: string): Promise<Question> => {
+  return (await axios.get(`${API_URL}/questions/${questionId}`)).data
+}
+
 export const getTags = async (): Promise<Tag[]> => {
   return (await axios.get(`${API_URL}/tags/`)).data
 }
 
-export const createQuestion = async (data: CreateQuestionRequest): Promise<Questions> => {
+export const createQuestion = async (data: CreateQuestionRequest): Promise<Question> => {
   try {
     const res = await axios.post(`${API_URL}/questions/`, data, {
       headers: {
@@ -37,6 +50,23 @@ export const createQuestion = async (data: CreateQuestionRequest): Promise<Quest
       throw new Error(err?.response?.data?.detail || 'Failed to create question');
     } else {
       throw new Error('Unable to create question')
+    }
+  }
+}
+
+export const updateQuestion = async (id: string, data: UpdateQuestionRequest): Promise<Question> => {
+  try {
+    const res = await axios.put(`${API_URL}/questions/${id}/`, data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return res.data;
+  } catch (err: unknown) {
+    if (err instanceof AxiosError) {
+      throw new Error(err?.response?.data?.detail || 'Failed to update question');
+    } else {
+      throw new Error('Unable to update question')
     }
   }
 }

@@ -2,8 +2,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useForm } from '@tanstack/react-form'
 import { useQuery } from '@tanstack/react-query'
-import { getTags, createQuestion } from '../api'
-import { type Tag } from '../types'
+import { getTags, createQuestion } from '../../api'
+import { type Tag } from '../../types'
 import {
   OutlinedInput,
   FormControl,
@@ -19,7 +19,7 @@ import { useState } from 'react'
 import { AxiosError } from 'axios'
 
 
-export const Route = createFileRoute('/_auth/question')({
+export const Route = createFileRoute('/_auth/question/')({
   component: RouteComponent,
 })
 
@@ -201,7 +201,6 @@ function RouteComponent() {
             );
           }}
         />
-        {/* Feedback and buttons at the bottom */}
         <div style={{ alignSelf: 'center', marginTop: 24 }}>
           {submitError && (
             <div style={{ color: 'red', marginBottom: 8 }}>{submitError}</div>

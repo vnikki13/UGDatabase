@@ -4,6 +4,9 @@ import type { Question, Tag, AnswerChoice } from '../types';
 import type { ColDef, SpanRowsParams } from 'ag-grid-community';
 import { useQuery } from '@tanstack/react-query';
 import { getQuestions } from '../api';
+import Button from '@mui/material/Button';
+import { useNavigate } from '@tanstack/react-router';
+
 
 interface GridRow {
     id: string;
@@ -15,6 +18,7 @@ interface GridRow {
     answerText: string;
     isCorrect: boolean;
     rowIndex: number;
+    edit: string;
 }
 
 const customSpanFunc = ({ nodeA, nodeB }: SpanRowsParams) => {
@@ -22,7 +26,8 @@ const customSpanFunc = ({ nodeA, nodeB }: SpanRowsParams) => {
 };
 
 export function Questions() {
-    const colDefs = useMemo<ColDef<GridRow>[]>(() => [
+    const navigate = useNavigate();
+    const colDefs: ColDef<GridRow>[] = [
         {
             field: 'id',
             spanRows: customSpanFunc,
@@ -58,9 +63,30 @@ export function Questions() {
             headerName: "Is Correct",
             cellRenderer: (params: CustomCellRendererProps) => params.value ? '✅' : '❌'
         },
-    ], []);
+        {
+            field: 'edit',
+            headerName: 'Edit',
+            cellRenderer: (params: CustomCellRendererProps) => (
+                <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => (
+                        navigate({
+                            to: `/question/${params.data.id}`,
+                            params: { questionId: params.data.id }
+                        })
+                    )}
+                >
+                    Edit
+                </Button>
+            ),
+            width: 100,
+            pinned: 'right',
+            spanRows: customSpanFunc,
+        },
+    ];
 
-    const { data: questions} = useQuery({
+    const { data: questions } = useQuery({
         queryKey: ['questions'],
         queryFn: async () => getQuestions(),
     })
@@ -88,7 +114,8 @@ export function Questions() {
                     tags,
                     answerText: choice.text,
                     isCorrect: choice.is_correct,
-                    rowIndex: index
+                    rowIndex: index,
+                    edit: '',
                 });
             });
         });
@@ -98,7 +125,7 @@ export function Questions() {
 
     return (
         <>
-            <h1 style={{justifySelf:'center'}}>Questions</h1>
+            <h1 style={{ justifySelf: 'center' }}>Questions</h1>
             <div style={{ height: 500 }}>
                 <AgGridReact
                     rowData={rowData}
@@ -114,7 +141,7 @@ export function Questions() {
                             'padding': '10px'
                         },
                         minWidth: 100
-                        
+
                     }}
                     enableCellSpan={true}
                 />

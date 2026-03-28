@@ -1,6 +1,9 @@
 # Ultrasound Guidance Database
 This codebase includes the postgres database, api endpoints and admin portal for Ultrasound Guidance.
 
+## Setup Postgres
+- TODO: Need to get postgres container running in docker
+ 
 ## Run FastAPI
 - Ensure you're in the `backend` folder
 - Run `fastapi dev app/main.py`

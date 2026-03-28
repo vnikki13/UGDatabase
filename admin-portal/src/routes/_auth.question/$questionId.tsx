@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router'
 import { getQuestion, getTags, updateQuestion } from '../../api';
-import { FormControl, TextField, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, Button } from '@mui/material';
 import type { AnswerChoice, Tag } from '../../types';
-import { useForm } from '@tanstack/react-form';
 import { useState } from 'react';
 import { AxiosError } from 'axios';
+import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button } from '@mui/material';
+import { useAppForm } from '../../hooks/questionFormHook';
 
 export const Route = createFileRoute('/_auth/question/$questionId')({
     component: RouteComponent,
@@ -31,14 +31,15 @@ function RouteComponent() {
         queryKey: ['question', questionId],
         queryFn: () => getQuestion(questionId),
     });
+    const [updateError, setUpdateError] = useState<string | null>(null);
+    const [updateSuccess, setUpdateSuccess] = useState<boolean>(false);
+
     const { data: tagOptions = [] } = useQuery({
         queryKey: ['tags'],
         queryFn: getTags,
     });
-    const [updateError, setUpdateError] = useState<string | null>(null);
-    const [updateSuccess, setUpdateSuccess] = useState<boolean>(false);
 
-    const form = useForm({
+    const form = useAppForm({
         defaultValues: data ? {
             prompt: data.prompt || '',
             mediaStoragePath: data.media_storage_path || '',
@@ -94,34 +95,28 @@ function RouteComponent() {
                 autoComplete='off'
             >
                 <div>
-                    <form.Field
+                    <form.AppField
                         name='prompt'
-                        children={({ state, handleChange }) => (
-                            <FormControl sx={{ m: 1, width: 300 }}>
-                                <TextField
-                                    label="Prompt"
-                                    variant="outlined"
-                                    value={state.value}
-                                    onChange={(e) => handleChange(e.target.value)}
-                                    multiline
-                                    required
-                                />
-                            </FormControl>
+                        children={(field) => (
+                            <field.TextField label='Prompt' />
                         )}
                     />
-                    <form.Field
+                    <form.AppField
                         name='explanation'
-                        children={({ state, handleChange }) => (
-                            <FormControl sx={{ m: 1, width: 300 }}>
-                                <TextField
-                                    label="Explanation"
-                                    variant="outlined"
-                                    value={state.value}
-                                    onChange={(e) => handleChange(e.target.value)}
-                                    multiline
-                                    required
-                                />
-                            </FormControl>
+                        children={(field) => (
+                            <field.TextField label='Explanation' />
+                        )}
+                    />
+                    <form.AppField
+                        name='mediaStoragePath'
+                        children={(field) => (
+                            <field.TextField label='Media Storage Path' isRequired={false} />
+                        )}
+                    />
+                    <form.AppField
+                        name='mediaContentType'
+                        children={(field) => (
+                            <field.TextField label='Media Content Type' isRequired={false} />
                         )}
                     />
                     <form.Field
@@ -206,7 +201,7 @@ function RouteComponent() {
                         <div style={{ color: 'red', marginBottom: 8 }}>{updateError}</div>
                     )}
                     {updateSuccess && (
-                        <div style={{ color: 'green', marginBottom: 8 }}>Question updated successfully!</div>
+                        <div style={{ color: 'green', marginBottom: 8 }}>Question created successfully!</div>
                     )}
                     <form.Subscribe
                         selector={(state) => [state.canSubmit, state.isSubmitting]}
@@ -228,7 +223,7 @@ function RouteComponent() {
                         )}
                     />
                 </div>
-            </form>
+            </form >
         </div>
     )
 }

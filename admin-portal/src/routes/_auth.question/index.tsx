@@ -4,7 +4,7 @@ import { createQuestion, getTags } from '../../api'
 import { type Tag } from '../../types'
 import { useState } from 'react'
 import { AxiosError } from 'axios'
-import { useAppForm } from '../../hooks/questionFormHook'
+import { useAppForm } from '../../hooks/questionForm'
 import { FormControl, TextField, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, Button } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 

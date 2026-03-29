@@ -6,22 +6,37 @@ from sqlmodel import select, func
 
 from app.db.database import SessionDep
 from app.models import (
-    Exam, ExamCreate, ExamUpdate, Question, Question_Tag, Answer_Choice,
-    Exam_Question, Exam_Answer, ExamResponse, ExamListResponse,
-    ExamCreateResponse, MessageResponse, ExamQuestionResponse,
-    AnswerChoiceResponse, ExamBasicInfo, Exam_Tag, Tag,
-    QuestionReadWithUserAnswer
+    AdminExamCreate,
+    Exam,
+    ExamCreate,
+    ExamUpdate,
+    Question,
+    Question_Tag,
+    Answer_Choice,
+    Exam_Question,
+    Exam_Answer,
+    ExamResponse,
+    ExamListResponse,
+    ExamCreateResponse,
+    MessageResponse,
+    ExamQuestionResponse,
+    AnswerChoiceResponse,
+    ExamBasicInfo,
+    Exam_Tag,
+    Tag,
+    QuestionReadWithUserAnswer,
 )
+from typing import List
 from collections import defaultdict
 
 
-router = APIRouter(
-    prefix='/exams',
-    tags=['exams']
+router = APIRouter(prefix="/exams", tags=["exams"])
+
+
+@router.get(
+    "/user/{member_id}/missed-questions",
+    response_model=list[QuestionReadWithUserAnswer],
 )
-
-
-@router.get('/user/{member_id}/missed-questions', response_model=list[QuestionReadWithUserAnswer])
 def get_missed_questions(member_id: str, session: SessionDep):
     """
     Get all questions that were most recently answered incorrectly by the user.
@@ -30,11 +45,7 @@ def get_missed_questions(member_id: str, session: SessionDep):
 
     # Get all incorrectly answered questions with their exam completion timestamp and answer_id
     results = session.exec(
-        select(
-            Question.id,
-            func.max(Exam.completed_at),
-            Exam_Answer.answer_id
-        )
+        select(Question.id, func.max(Exam.completed_at), Exam_Answer.answer_id)
         .join(Exam_Question, Exam_Question.question_id == Question.id)
         .join(Exam, Exam.id == Exam_Question.exam_id)
         .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
@@ -66,8 +77,7 @@ def get_missed_questions(member_id: str, session: SessionDep):
 
     # Fetch answer choices for all questions
     answer_choices = session.exec(
-        select(Answer_Choice).where(
-            Answer_Choice.question_id.in_(question_ids))
+        select(Answer_Choice).where(Answer_Choice.question_id.in_(question_ids))
     ).all()
     answer_choices_by_question = defaultdict(list)
     for ac in answer_choices:
@@ -75,14 +85,11 @@ def get_missed_questions(member_id: str, session: SessionDep):
 
     # Fetch tags for all questions
     question_tag = session.exec(
-        select(Question_Tag).where(
-            Question_Tag.question_id.in_(question_ids))
+        select(Question_Tag).where(Question_Tag.question_id.in_(question_ids))
     ).all()
 
     tag_ids = list(set(qt.tag_id for qt in question_tag))
-    tags = session.exec(
-        select(Tag).where(Tag.id.in_(tag_ids))
-    ).all() if tag_ids else []
+    tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all() if tag_ids else []
     tags_by_id = {tag.id: tag for tag in tags}
 
     tags_by_question = defaultdict(list)
@@ -101,7 +108,7 @@ def get_missed_questions(member_id: str, session: SessionDep):
             answerChoices=answer_choices_by_question[q.id],
             tags=tags_by_question[q.id] or None,
             user_answer_id=user_answers.get(q.id),
-            deleted_at=q.deleted_at
+            deleted_at=q.deleted_at,
         )
         for q in questions_sorted
     ]
@@ -109,29 +116,28 @@ def get_missed_questions(member_id: str, session: SessionDep):
     return questions_data
 
 
-@router.get('/user/{member_id}', response_model=ExamListResponse)
+@router.get("/user/{member_id}", response_model=ExamListResponse)
 def read_exams_by_user(member_id: str, session: SessionDep):
     exams = session.exec(
-        select(Exam)
-        .where(Exam.member_id == member_id)
-        .where(Exam.deleted_at.is_(None))
+        select(Exam).where(Exam.member_id == member_id).where(Exam.deleted_at.is_(None))
     ).all()
 
     # Fetch all exam tags in one query
     exam_ids = [exam.id for exam in exams]
-    exam_tags = session.exec(
-        select(Exam_Tag).where(Exam_Tag.exam_id.in_(exam_ids))
-    ).all() if exam_ids else []
+    exam_tags = (
+        session.exec(select(Exam_Tag).where(Exam_Tag.exam_id.in_(exam_ids))).all()
+        if exam_ids
+        else []
+    )
 
     # Fetch all relevant tags
     tag_ids = list(set(et.tag_id for et in exam_tags))
-    tags = session.exec(
-        select(Tag).where(Tag.id.in_(tag_ids))
-    ).all() if tag_ids else []
+    tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all() if tag_ids else []
     tags_by_id = {tag.id: tag for tag in tags}
 
     # Group tags by exam
     from collections import defaultdict
+
     tags_by_exam = defaultdict(list)
     for et in exam_tags:
         if et.tag_id in tags_by_id:
@@ -147,14 +153,15 @@ def read_exams_by_user(member_id: str, session: SessionDep):
             score=exam.score,
             question_count=exam.question_count,
             tags=tags_by_exam.get(exam.id) or None,
-            filters=exam.filters
-        ) for exam in exams
+            filters=exam.filters,
+        )
+        for exam in exams
     ]
 
     return ExamListResponse(exams=exam_list, count=len(exam_list))
 
 
-@router.get('/{exam_id}', response_model=ExamResponse)
+@router.get("/{exam_id}", response_model=ExamResponse)
 def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
     exam = session.get(Exam, exam_id)
     if not exam or exam.deleted_at:
@@ -179,13 +186,17 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
             question = session.get(Question, eq.question_id)
             if question and question.version != eq.question_version:
                 # The question ID doesn't match the version, search for the right version
-                base_id = question.base_question_id if question.base_question_id else eq.question_id
+                base_id = (
+                    question.base_question_id
+                    if question.base_question_id
+                    else eq.question_id
+                )
                 question = session.exec(
-                    select(Question).where(
-                        Question.version == eq.question_version
-                    ).where(
-                        (Question.id == base_id) | (
-                            Question.base_question_id == base_id)
+                    select(Question)
+                    .where(Question.version == eq.question_version)
+                    .where(
+                        (Question.id == base_id)
+                        | (Question.base_question_id == base_id)
                     )
                 ).first()
 
@@ -193,8 +204,7 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
             continue
 
         answer_choices = session.exec(
-            select(Answer_Choice).where(
-                Answer_Choice.question_id == question.id)
+            select(Answer_Choice).where(Answer_Choice.question_id == question.id)
         ).all()
 
         user_answer = session.exec(
@@ -211,12 +221,11 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
                 position=eq.position,
                 answer_choices=[
                     AnswerChoiceResponse(
-                        id=ac.id,
-                        text=ac.text,
-                        is_correct=ac.is_correct
-                    ) for ac in answer_choices
+                        id=ac.id, text=ac.text, is_correct=ac.is_correct
+                    )
+                    for ac in answer_choices
                 ],
-                user_answer_id=user_answer.answer_id if user_answer else None
+                user_answer_id=user_answer.answer_id if user_answer else None,
             )
         )
 
@@ -240,11 +249,11 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
         question_count=exam.question_count,
         tags=tags or None,
         filters=exam.filters,
-        questions=questions_data
+        questions=questions_data,
     )
 
 
-@router.post('/', response_model=ExamCreateResponse)
+@router.post("/", response_model=ExamCreateResponse)
 def create_exam(*, session: SessionDep, exam_in: ExamCreate):
     # Query questions based on tags or get all questions
     if exam_in.tags and len(exam_in.tags) > 0:
@@ -262,8 +271,9 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
     questions = session.exec(statement).all()
 
     # Apply questions filter - if no filters specified, apply all filters
-    filters_to_apply = exam_in.filters if exam_in.filters else [
-        "missed", "correct", "unanswered"]
+    filters_to_apply = (
+        exam_in.filters if exam_in.filters else ["missed", "correct", "unanswered"]
+    )
 
     if filters_to_apply:
         # Validate filter values
@@ -272,7 +282,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         if invalid_filters:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid filter values: {', '.join(invalid_filters)}. Valid values are: {', '.join(valid_filters)}."
+                detail=f"Invalid filter values: {', '.join(invalid_filters)}. Valid values are: {', '.join(valid_filters)}.",
             )
 
         # Start with empty set and union all filter results
@@ -330,7 +340,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
     if not questions:
         raise HTTPException(
             status_code=404,
-            detail="No questions available to create this exam with the specified criteria"
+            detail="No questions available to create this exam with the specified criteria",
         )
 
     num_questions_to_select = min(len(questions), exam_in.question_count)
@@ -341,20 +351,14 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         member_id=exam_in.member_id,
         started_at=datetime.now(UTC),
         question_count=len(questions),
-        filters=exam_in.filters
+        filters=exam_in.filters,
     )
     session.add(exam)
     session.flush()  # Get exam.id without committing
 
     # Create exam-tag relationships
     if exam_in.tags:
-        exam_tags = [
-            Exam_Tag(
-                exam_id=exam.id,
-                tag_id=tag.id
-            )
-            for tag in exam_in.tags
-        ]
+        exam_tags = [Exam_Tag(exam_id=exam.id, tag_id=tag.id) for tag in exam_in.tags]
         session.add_all(exam_tags)
 
     # Create exam_question entries with version tracking
@@ -363,7 +367,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
             exam_id=exam.id,
             question_id=question.id,
             question_version=question.version,
-            position=position
+            position=position,
         )
         session.add(exam_question)
     session.commit()
@@ -373,8 +377,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
     questions_data = []
     for position, question in enumerate(selected_questions, start=1):
         answer_choices = session.exec(
-            select(Answer_Choice).where(
-                Answer_Choice.question_id == question.id)
+            select(Answer_Choice).where(Answer_Choice.question_id == question.id)
         ).all()
 
         questions_data.append(
@@ -387,11 +390,10 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
                 position=position,
                 answer_choices=[
                     AnswerChoiceResponse(
-                        id=ac.id,
-                        text=ac.text,
-                        is_correct=ac.is_correct
-                    ) for ac in answer_choices
-                ]
+                        id=ac.id, text=ac.text, is_correct=ac.is_correct
+                    )
+                    for ac in answer_choices
+                ],
             )
         )
 
@@ -412,11 +414,99 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         question_count=exam.question_count,
         tags=tags or None,
         filters=exam.filters,
-        questions=questions_data
+        questions=questions_data,
     )
 
 
-@router.put('/{exam_id}')
+@router.post("/admin", response_model=List[ExamCreateResponse])
+def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
+    """
+    Create an exam for each member in 'members' with the provided 'questionIds'.
+    Adds 'admin' filter, sets updated_at to now, leaves started_at, completed_at, score, deleted_at empty.
+    """
+    print('Im HERE!!')
+    members = exam_in.member_uuids
+    question_ids = exam_in.question_ids
+    if not members or not question_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Both 'member_uuids' and 'question_ids' are required.",
+        )
+
+    responses = []
+    now = datetime.now(UTC)
+    for member in members:
+        exam = Exam(
+            member_id=member,
+            started_at=now,
+            updated_at=None,
+            completed_at=None,
+            score=None,
+            question_count=len(question_ids),
+            filters=["admin"],
+            deleted_at=None,
+        )
+        session.add(exam)
+        session.flush()
+
+        # Create Exam_Question entries
+        questions_data = []
+        for position, qid in enumerate(question_ids, start=1):
+            eq = Exam_Question(
+                exam_id=exam.id, question_id=qid, question_version=1, position=position
+            )
+            session.add(eq)
+            # Optionally, fetch question details for response
+            question = session.get(Question, qid)
+            if question:
+                answer_choices = session.exec(
+                    select(Answer_Choice).where(Answer_Choice.question_id == qid)
+                ).all()
+                questions_data.append(
+                    ExamQuestionResponse(
+                        id=question.id,
+                        prompt=question.prompt,
+                        media_storage_path=question.media_storage_path,
+                        media_content_type=question.media_content_type,
+                        explanation=question.explanation,
+                        position=position,
+                        answer_choices=[
+                            AnswerChoiceResponse(
+                                id=ac.id, text=ac.text, is_correct=ac.is_correct
+                            )
+                            for ac in answer_choices
+                        ],
+                    )
+                )
+
+        session.commit()
+        session.refresh(exam)
+
+    # Fetch tags for response
+    exam_tag_links = session.exec(
+        select(Exam_Tag).where(Exam_Tag.exam_id == exam.id)
+    ).all()
+
+    tags = []
+    if exam_tag_links:
+        tag_ids = [et.tag_id for et in exam_tag_links]
+        tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
+
+    responses.append(
+        ExamCreateResponse(
+            exam_id=exam.id,
+            member_id=exam.member_id,
+            started_at=exam.started_at,
+            question_count=exam.question_count,
+            tags=tags or None,
+            filters=exam.filters,
+            questions=questions_data,
+        )
+    )
+    return responses
+
+
+@router.put("/{exam_id}")
 def update_exam(*, session: SessionDep, exam_id: uuid.UUID, exam_in: ExamUpdate):
     # Verify exam exists
     exam = session.get(Exam, exam_id)
@@ -444,15 +534,15 @@ def update_exam(*, session: SessionDep, exam_id: uuid.UUID, exam_in: ExamUpdate)
         exam_question_id = exam_question_map.get(answer_input.question_id)
         if not exam_question_id:
             raise HTTPException(
-                status_code=400,
-                detail=f"Question {answer_input.question_id} not found"
+                status_code=400, detail=f"Question {answer_input.question_id} not found"
             )
 
         if exam_question_id not in answered_exam_question_ids:
-            session.add(Exam_Answer(
-                exam_question_id=exam_question_id,
-                answer_id=answer_input.answer_id
-            ))
+            session.add(
+                Exam_Answer(
+                    exam_question_id=exam_question_id, answer_id=answer_input.answer_id
+                )
+            )
 
     exam.updated_at = datetime.now(UTC)
 
@@ -460,16 +550,23 @@ def update_exam(*, session: SessionDep, exam_id: uuid.UUID, exam_in: ExamUpdate)
     if exam_in.is_complete:
         result = session.exec(
             select(Exam_Question, Exam_Answer, Answer_Choice)
-            .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id, isouter=True)
-            .join(Answer_Choice, Answer_Choice.id == Exam_Answer.answer_id, isouter=True)
+            .join(
+                Exam_Answer,
+                Exam_Answer.exam_question_id == Exam_Question.id,
+                isouter=True,
+            )
+            .join(
+                Answer_Choice, Answer_Choice.id == Exam_Answer.answer_id, isouter=True
+            )
             .where(Exam_Question.exam_id == exam_id)
         ).all()
 
         total_questions = len(result)
         correct_answers = sum(1 for _, _, ac in result if ac and ac.is_correct)
 
-        exam.score = int((correct_answers / total_questions * 100)
-                         ) if total_questions > 0 else 0
+        exam.score = (
+            int((correct_answers / total_questions * 100)) if total_questions > 0 else 0
+        )
         exam.completed_at = datetime.now(UTC)
 
     session.add(exam)
@@ -478,11 +575,11 @@ def update_exam(*, session: SessionDep, exam_id: uuid.UUID, exam_in: ExamUpdate)
     return MessageResponse(
         message="Exam answers saved successfully",
         exam_id=exam_id,
-        score=exam.score if exam_in.is_complete else None
+        score=exam.score if exam_in.is_complete else None,
     )
 
 
-@router.delete('/{exam_id}', response_model=MessageResponse)
+@router.delete("/{exam_id}", response_model=MessageResponse)
 def soft_delete_exam(exam_id: uuid.UUID, session: SessionDep):
     exam = session.get(Exam, exam_id)
     if not exam:
@@ -497,12 +594,10 @@ def soft_delete_exam(exam_id: uuid.UUID, session: SessionDep):
     return MessageResponse(message="Exam soft deleted successfully")
 
 
-@router.delete('/user/{member_id}/all', response_model=MessageResponse)
+@router.delete("/user/{member_id}/all", response_model=MessageResponse)
 def soft_delete_all_user_exams(member_id: str, session: SessionDep):
     exams = session.exec(
-        select(Exam)
-        .where(Exam.member_id == member_id)
-        .where(Exam.deleted_at.is_(None))
+        select(Exam).where(Exam.member_id == member_id).where(Exam.deleted_at.is_(None))
     ).all()
 
     if not exams:
@@ -516,7 +611,7 @@ def soft_delete_all_user_exams(member_id: str, session: SessionDep):
     return MessageResponse(message=f"Soft deleted {len(exams)} exams successfully")
 
 
-@router.delete('/{exam_id}/hard', response_model=MessageResponse)
+@router.delete("/{exam_id}/hard", response_model=MessageResponse)
 def hard_delete_exam(exam_id: uuid.UUID, session: SessionDep):
     exam = session.get(Exam, exam_id)
     if not exam:
@@ -528,11 +623,9 @@ def hard_delete_exam(exam_id: uuid.UUID, session: SessionDep):
     return MessageResponse(message="Exam permanently deleted")
 
 
-@router.delete('/user/{member_id}/all/hard', response_model=MessageResponse)
+@router.delete("/user/{member_id}/all/hard", response_model=MessageResponse)
 def hard_delete_all_user_exams(member_id: str, session: SessionDep):
-    exams = session.exec(
-        select(Exam).where(Exam.member_id == member_id)
-    ).all()
+    exams = session.exec(select(Exam).where(Exam.member_id == member_id)).all()
 
     if not exams:
         return MessageResponse(message="No exams found for this user")

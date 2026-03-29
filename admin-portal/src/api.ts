@@ -1,4 +1,4 @@
-import type { Questions, Question, Tag } from './types'
+import type { Questions, Question, Tag, Member, AdminCreateExamRequest, Exam } from './types'
 import axios, { AxiosError } from 'axios'
 
 export interface CreateQuestionRequest {
@@ -23,6 +23,10 @@ const API_URL = import.meta.env.VITE_API_URL
 
 export const getAuthorizedUser = async (userEmail: string | undefined) => {
   return axios.get(`${API_URL}/ghost/users/${userEmail}`)
+}
+
+export const searchMembers = async (search: string): Promise<Member[]> => {
+  return (await axios.get(`${API_URL}/ghost/members?search=${search}`)).data
 }
 
 export const getQuestions = async (): Promise<Questions> => {
@@ -67,6 +71,24 @@ export const updateQuestion = async (id: string, data: UpdateQuestionRequest): P
       throw new Error(err?.response?.data?.detail || 'Failed to update question');
     } else {
       throw new Error('Unable to update question')
+    }
+  }
+}
+
+
+export const createAdminExam = async (data: AdminCreateExamRequest): Promise<Exam[]> => {
+    try {
+    const res = await axios.post(`${API_URL}/exams/admin`, data, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return res.data;
+  } catch (err: unknown) {
+    if (err instanceof AxiosError) {
+      throw new Error(err?.response?.data?.detail || 'Failed to create admin exam');
+    } else {
+      throw new Error('Unable to create admin exam')
     }
   }
 }

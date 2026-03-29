@@ -1,4 +1,4 @@
-import { AgGridReact, type CustomCellRendererProps } from 'ag-grid-react'; // React Data Grid Component
+import { AgGridReact, type CustomCellRendererProps } from 'ag-grid-react';
 import { useMemo } from 'react';
 import type { Question, Tag, AnswerChoice } from '../types';
 import type { ColDef, SpanRowsParams } from 'ag-grid-community';
@@ -141,7 +141,6 @@ export function Questions() {
                             'padding': '10px'
                         },
                         minWidth: 100
-
                     }}
                     enableCellSpan={true}
                 />

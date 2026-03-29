@@ -5,7 +5,7 @@ import type { AnswerChoice, Tag } from '../../types';
 import { useState } from 'react';
 import { AxiosError } from 'axios';
 import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button } from '@mui/material';
-import { useAppForm } from '../../hooks/questionFormHook';
+import { useAppForm } from '../../hooks/questionForm';
 
 export const Route = createFileRoute('/_auth/question/$questionId')({
     component: RouteComponent,
@@ -27,12 +27,14 @@ type QuestionFormValues = {
 
 function RouteComponent() {
     const { questionId } = Route.useParams();
+
+    const [updateError, setUpdateError] = useState<string | null>(null);
+    const [updateSuccess, setUpdateSuccess] = useState<boolean>(false);
+
     const { data, isLoading, error } = useQuery({
         queryKey: ['question', questionId],
         queryFn: () => getQuestion(questionId),
     });
-    const [updateError, setUpdateError] = useState<string | null>(null);
-    const [updateSuccess, setUpdateSuccess] = useState<boolean>(false);
 
     const { data: tagOptions = [] } = useQuery({
         queryKey: ['tags'],

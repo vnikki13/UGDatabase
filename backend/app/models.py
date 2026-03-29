@@ -131,6 +131,11 @@ class ExamCreate(SQLModel):
     filters: list[str] | None = None
 
 
+class AdminExamCreate(SQLModel):
+    member_uuids: list[str]
+    question_ids: list[str]
+
+
 class ExamAnswerInput(SQLModel):
     question_id: uuid.UUID
     answer_id: uuid.UUID

@@ -38,6 +38,54 @@ This codebase includes the postgres database, api endpoints and admin portal for
 - The database is hosted on Google Cloud SQL
 - Run upgrades and downgrades through a path that has private access to the instance
 
+## Cloud Run Deployment
+
+### Backend deploy
+- Ensure you are in the `backend` folder
+- Deploy with:
+
+```bash
+bash scripts/deploy-cloud-run.sh
+```
+
+- To allow a deployed frontend origin (CORS), pass `ADMIN_PORTAL_ORIGIN`:
+
+```bash
+ADMIN_PORTAL_ORIGIN=https://admin-portal-<hash>-<region>.run.app bash scripts/deploy-cloud-run.sh
+```
+
+- Useful backend overrides:
+
+```bash
+PROJECT_ID=ultrasound-guidance \
+REGION=us-east1 \
+SERVICE_NAME=backend \
+ALLOWED_ORIGINS=https://admin-portal-<hash>-<region>.run.app,http://localhost:5173 \
+bash scripts/deploy-cloud-run.sh
+```
+
+### Admin portal deploy
+- Ensure you are in the repo root or `admin-portal` folder
+- The admin portal deploy script requires both build-time variables:
+	- `VITE_API_URL` (must include `/api/v1`)
+	- `VITE_GCS_CLIENT_ID` (Google OAuth Web client ID)
+
+```bash
+VITE_API_URL=https://backend-<hash>-<region>.run.app/api/v1 \
+VITE_GCS_CLIENT_ID=<web-client-id>.apps.googleusercontent.com \
+./admin-portal/scripts/deploy-cloud-run.sh
+```
+
+### Google OAuth setup for admin portal
+- In Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs (Web client):
+	- Add the deployed admin portal URL to **Authorized JavaScript origins**
+	- Keep local dev origin if needed: `http://localhost:5173`
+- If the consent screen is in Testing mode, add your account under **OAuth consent screen > Test users**
+
+### Common deploy pitfalls
+- If admin portal build fails with missing `routeTree.gen.ts`, ensure `admin-portal/.gcloudignore` exists and includes `!src/routeTree.gen.ts`
+- If admin portal cannot call backend after deploy, redeploy backend with `ADMIN_PORTAL_ORIGIN=<admin portal URL>` or update `ALLOWED_ORIGINS`
+
 ## Production Resources
 - Permanent backend resources: Cloud Run service `backend`, Cloud SQL instance `ug-instance`, VPC connector `backend-connector`, Secret Manager secret `backend-postgres-password`, and the default VPC peering/private range used by Cloud SQL private IP
 

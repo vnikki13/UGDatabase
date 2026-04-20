@@ -1,73 +1,66 @@
-# React + TypeScript + Vite
+# Admin Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript admin portal for UGDatabase.
 
-Currently, two official plugins are available:
+## Local development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. Install dependencies:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Start dev server:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+npm run dev
+```
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+3. Required local env vars (for example in `.env.local`):
+
+```bash
+VITE_API_URL=http://localhost:8000/api/v1
+VITE_GCS_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
+```
+
+## Cloud Run deployment
+
+Use the deploy script from the repo root or from this folder.
+
+Required environment variables:
+- `VITE_API_URL` (must include `/api/v1`)
+- `VITE_GCS_CLIENT_ID` (Google OAuth Web client ID)
+
+Example:
+
+```bash
+VITE_API_URL=https://backend-<hash>-<region>.run.app/api/v1 \
+VITE_GCS_CLIENT_ID=<web-client-id>.apps.googleusercontent.com \
+./scripts/deploy-cloud-run.sh
+```
+
+Optional overrides:
+- `PROJECT_ID` (default `ultrasound-guidance`)
+- `REGION` (default `us-east1`)
+- `SERVICE_NAME` (default `admin-portal`)
+- `ALLOW_UNAUTHENTICATED` (`true` by default)
+
+## Google OAuth checklist
+
+If Google sign-in shows "doesn't comply with Google's OAuth 2.0 policy":
+
+1. Open Google Cloud Console > APIs & Services > Credentials.
+2. Open the OAuth 2.0 Web client used by `VITE_GCS_CLIENT_ID`.
+3. Add origins under **Authorized JavaScript origins**:
+   - deployed Cloud Run URL, for example `https://admin-portal-<hash>-<region>.run.app`
+   - `http://localhost:5173` for local development
+4. If OAuth consent is in Testing mode, add your account to **OAuth consent screen > Test users**.
+
+## Backend CORS requirement
+
+The backend must allow the admin portal origin in `ALLOWED_ORIGINS`.
+Use backend deploy with:
+
+```bash
+ADMIN_PORTAL_ORIGIN=https://admin-portal-<hash>-<region>.run.app ./scripts/deploy-cloud-run.sh
 ```

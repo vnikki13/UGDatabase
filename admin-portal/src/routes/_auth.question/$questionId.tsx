@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router'
 import { getQuestion, getTags, updateQuestion } from '../../api';
 import type { AnswerChoice, Tag } from '../../types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AxiosError } from 'axios';
 import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button } from '@mui/material';
 import { useAppForm } from '../../hooks/questionForm';
@@ -42,14 +42,7 @@ function RouteComponent() {
     });
 
     const form = useAppForm({
-        defaultValues: data ? {
-            prompt: data.prompt || '',
-            mediaStoragePath: data.media_storage_path || '',
-            mediaContentType: data.media_content_type || '',
-            explanation: data.explanation || '',
-            tags: data.tags || [],
-            answerChoices: (data.answerChoices || []).map((a: AnswerChoice) => ({ text: a.text, is_correct: a.is_correct })),
-        } : {
+        defaultValues: {
             prompt: '',
             mediaStoragePath: '',
             mediaContentType: '',
@@ -77,6 +70,22 @@ function RouteComponent() {
             }
         },
     })
+
+    useEffect(() => {
+        if (data) {
+            form.reset({
+                prompt: data.prompt || '',
+                mediaStoragePath: data.media_storage_path || '',
+                mediaContentType: data.media_content_type || '',
+                explanation: data.explanation || '',
+                tags: data.tags || [],
+                answerChoices: (data.answerChoices || []).map((a: AnswerChoice) => ({
+                    text: a.text,
+                    is_correct: a.is_correct,
+                })),
+            });
+        }
+    }, [data]);
 
     if (isLoading) return <div>Loading...</div>;
     if (error) return <div>Error loading question</div>;

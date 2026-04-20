@@ -61,7 +61,7 @@ export const createQuestion = async (data: CreateQuestionRequest): Promise<Quest
 
 export const updateQuestion = async (id: string, data: UpdateQuestionRequest): Promise<Question> => {
   try {
-    const res = await axios.put(`${API_URL}/questions/${id}/`, data, {
+    const res = await axios.put(`${API_URL}/questions/${id}`, data, {
       headers: {
         'Content-Type': 'application/json',
       },

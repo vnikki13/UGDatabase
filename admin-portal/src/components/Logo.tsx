@@ -1,10 +1,11 @@
 import Box from "@mui/material/Box";
+import icon from '../assets/icon.png'
 
 export function Logo() {
     return (
         <Box
             component="img"
-            src="/src/assets/icon.png"
+            src={icon}
             alt="Home"
             onClick={() => window.location.href = '/dashboard'}
             sx={{

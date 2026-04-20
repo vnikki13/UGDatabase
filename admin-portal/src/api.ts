@@ -19,7 +19,8 @@ export interface UpdateQuestionRequest {
   answerChoices: { text: string; is_correct: boolean }[]
 }
 
-const API_URL = import.meta.env.VITE_API_URL
+const DEFAULT_API_URL = 'https://backend-947728965057.us-east1.run.app/api/v1'
+const API_URL = (import.meta.env.VITE_API_URL || DEFAULT_API_URL).replace(/\/$/, '')
 
 export const getAuthorizedUser = async (userEmail: string | undefined) => {
   return axios.get(`${API_URL}/ghost/users/${userEmail}`)

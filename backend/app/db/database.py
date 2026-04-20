@@ -7,8 +7,8 @@ from app.core.config import settings
 # The engine is the single object that we share with all the code.
 # It's in charge of communicating with the database, handling the connections, ect.
 engine = create_engine(
-    str(settings.SQLALCHEMY_DATABASE_URI),
-    echo=True,  # See all SQL statements, remove in production
+    settings.DATABASE_URI,
+    echo=settings.DEBUG,
 )
 
 

@@ -1,0 +1,12 @@
+.gcloudignore
+.git
+.gitignore
+.venv/
+.env
+.python-version
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+gcs-credentials.json

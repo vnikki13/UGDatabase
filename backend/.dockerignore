@@ -1,0 +1,16 @@
+# Prevent local virtual environments and other unnecessary files from being copied into the Docker image
+.venv
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+gcs-credentials.json
+migrations/__pycache__/
+
+# VS Code and OS files
+.vscode/
+.DS_Store
+Thumbs.db

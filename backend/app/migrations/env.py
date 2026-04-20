@@ -15,7 +15,7 @@ from app.models import Question  # noqa: F401
 # access to the values within the .ini file in use.
 config = context.config
 
-config.set_main_option('sqlalchemy.url', f'{settings.SQLALCHEMY_DATABASE_URI}')
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URI)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -76,7 +76,7 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, 
+            connection=connection,
             target_metadata=target_metadata,
         )
 

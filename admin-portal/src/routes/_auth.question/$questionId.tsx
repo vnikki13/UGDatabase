@@ -4,12 +4,13 @@ import { getQuestion, getSignedDownloadUrl, getTags, updateQuestion } from '../.
 import type { AnswerChoice, Question, Tag } from '../../types';
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
-import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button, Box, CircularProgress } from '@mui/material';
+import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button, Box, CircularProgress, FormHelperText } from '@mui/material';
 import { useAppForm } from '../../hooks/questionForm';
 import { FilePond, registerPlugin } from 'react-filepond'
 import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type'
 import type { FilePondFile } from 'filepond'
 import 'filepond/dist/filepond.min.css'
+import { FormActionFooter } from '../../components/FormActionFooter';
 
 registerPlugin(FilePondPluginFileValidateType)
 
@@ -194,16 +195,25 @@ function QuestionEditForm({
                     form.reset()
                 }}
                 autoComplete='off'
+                noValidate
             >
                 <div>
                     <form.AppField
                         name='prompt'
+                        validators={{
+                            onChange: ({ value }) => !value?.trim() ? 'Prompt is required' : undefined,
+                            onSubmit: ({ value }) => !value?.trim() ? 'Prompt is required' : undefined,
+                        }}
                         children={(field) => (
                             <field.TextField label='Prompt' />
                         )}
                     />
                     <form.AppField
                         name='explanation'
+                        validators={{
+                            onChange: ({ value }) => !value?.trim() ? 'Explanation is required' : undefined,
+                            onSubmit: ({ value }) => !value?.trim() ? 'Explanation is required' : undefined,
+                        }}
                         children={(field) => (
                             <field.TextField label='Explanation' />
                         )}
@@ -337,10 +347,17 @@ function QuestionEditForm({
                     <form.Field
                         name="tags"
                         mode="array"
+                        validators={{
+                            onChange: ({ value }) => value.length === 0 ? 'Select at least one tag' : undefined,
+                            onSubmit: ({ value }) => value.length === 0 ? 'Select at least one tag' : undefined,
+                        }}
                         children={({ state, handleChange }) => {
                             const selectedTagNames = (state.value || []).map((t: Tag) => t.name);
+                            const tagError = state.meta.errors.length > 0
+                                ? String(state.meta.errors[0])
+                                : undefined;
                             return (
-                                <FormControl sx={{ m: 1, width: 300 }}>
+                                <FormControl sx={{ m: 1, width: 300 }} error={!!tagError}>
                                     <InputLabel id="demo-multiple-name-label" required>Tags</InputLabel>
                                     <Select
                                         multiple
@@ -362,6 +379,7 @@ function QuestionEditForm({
                                             </MenuItem>
                                         ))}
                                     </Select>
+                                    {tagError && <FormHelperText>{tagError}</FormHelperText>}
                                 </FormControl>
                             );
                         }}
@@ -369,6 +387,18 @@ function QuestionEditForm({
                 </div>
                 <form.Field
                     name="answerChoices"
+                    validators={{
+                        onChange: ({ value }) => {
+                            if (value.some((c) => !c.text?.trim())) return 'All answer choices must have text'
+                            if (!value.some((c) => c.is_correct)) return 'Select a correct answer'
+                            return undefined
+                        },
+                        onSubmit: ({ value }) => {
+                            if (value.some((c) => !c.text?.trim())) return 'All answer choices must have text'
+                            if (!value.some((c) => c.is_correct)) return 'Select a correct answer'
+                            return undefined
+                        },
+                    }}
                     children={({ state, handleChange }) => {
                         const answerChoices = state.value.length === 4
                             ? state.value
@@ -382,8 +412,11 @@ function QuestionEditForm({
                             const updated = answerChoices.map((c, i) => ({ ...c, is_correct: i === idx }));
                             handleChange(updated);
                         };
+                        const choicesError = state.meta.errors.length > 0
+                            ? String(state.meta.errors[0])
+                            : undefined;
                         return (
-                            <FormControl component="fieldset" sx={{ m: 1, width: { xs: '100%', sm: 400 } }}>
+                            <FormControl component="fieldset" sx={{ m: 1, width: { xs: '100%', sm: 400 } }} error={!!choicesError}>
                                 <label style={{ marginBottom: 8 }}>Answer Choices</label>
                                 {answerChoices.map((choice, idx) => (
                                     <Box
@@ -420,35 +453,28 @@ function QuestionEditForm({
                                         </Box>
                                     </Box>
                                 ))}
+                                {choicesError && <FormHelperText>{choicesError}</FormHelperText>}
                             </FormControl>
                         );
                     }}
                 />
-                <div style={{ alignSelf: 'center', marginTop: 24 }}>
-                    {updateError && (
-                        <div style={{ color: 'red', marginBottom: 8 }}>{updateError}</div>
-                    )}
-                    {updateSuccess && (
-                        <div style={{ color: 'green', marginBottom: 8 }}>Question updated successfully!</div>
-                    )}
+                <div>
                     <form.Subscribe
                         selector={(state) => [state.canSubmit, state.isSubmitting]}
                         children={([canSubmit, isSubmitting]) => (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <Button type='reset' variant='outlined' disabled={isUploading || isSubmitting}>
-                                    Reset
-                                </Button>
-                                <Button
-                                    style={{ margin: 10 }}
-                                    type='submit'
-                                    variant='contained'
-                                    disabled={!canSubmit || isUploading || isSubmitting}
-                                    loading={isSubmitting}
-                                >
-                                    {isUploading ? 'Uploading...' : 'Submit'}
-                                </Button>
-                                {isUploading && <CircularProgress size={24} />}
-                            </div>
+                            <FormActionFooter
+                                canSubmit={canSubmit}
+                                isSubmitting={isSubmitting}
+                                isBusy={isUploading}
+                                submitLabel="Submit"
+                                busyLabel="Uploading..."
+                                successMessage={updateSuccess ? 'Question updated successfully!' : null}
+                                errorMessage={updateError}
+                                onCloseSuccess={() => { setUpdateSuccess(false) }}
+                                onCloseError={() => { setUpdateError(null) }}
+                                disableReset={isUploading || isSubmitting}
+                                disableSubmit={isUploading || isSubmitting}
+                            />
                         )}
                     />
                 </div>

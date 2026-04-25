@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useAppForm } from '../../hooks/questionForm';
-import { Alert, Autocomplete, Button, TextField } from '@mui/material';
+import { Autocomplete, TextField } from '@mui/material';
 import { useState, useEffect, useMemo } from 'react';
 import { getQuestions, searchMembers, createAdminExam } from '../../api';
 import type { Member, Question, Tag } from '../../types';
@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { GridApi, ColDef } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
 import { AxiosError } from 'axios';
+import { FormActionFooter } from '../../components/FormActionFooter';
 
 interface GridRow {
     id: string
@@ -83,12 +84,12 @@ function RouteComponent() {
                     member_uuids,
                     question_ids: value.questionIds,
                 });
-                setSuccessMsg('Exams created successfully!');
+                setSuccessMsg('Exam created successfully!');
                 gridApi?.deselectAll();
                 form.reset();
             } catch (err) {
                 if (err instanceof AxiosError)
-                    setErrorMsg(err?.message || 'Failed to create exams.');
+                    setErrorMsg(err?.message || 'Failed to create exam.');
             }
         },
     })
@@ -96,8 +97,6 @@ function RouteComponent() {
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
             <h1>Create a new exam</h1>
-            {successMsg && <Alert severity="success" sx={{ mb: 2 }} onClose={() => { setSuccessMsg(null) }}>{successMsg}</Alert>}
-            {errorMsg && <Alert severity="error" sx={{ mb: 2 }} onClose={() => { setErrorMsg(null) }}>{errorMsg}</Alert>}
             <form
                 style={{ display: 'flex', flexDirection: 'column' }}
                 onSubmit={(e) => {
@@ -114,9 +113,17 @@ function RouteComponent() {
             >
                 <form.Field
                     name='questionIds'
-                    children={({ handleChange }) => (
+                    validators={{ onChange: ({ value }) => value.length === 0 ? 'Select at least one question' : undefined }}
+                    children={({ handleChange, state }) => (
                         <div style={{ marginBottom: 24 }}>
-                            <label style={{ fontWeight: 600, marginBottom: 8, display: 'block' }}>Select Questions</label>
+                            <label style={{ fontWeight: 600, marginBottom: 8, display: 'block' }}>
+                                Select Questions
+                                {state.meta.errors.length > 0 && (
+                                    <span style={{ color: '#d32f2f', fontWeight: 400, marginLeft: 8, fontSize: 14 }}>
+                                        {state.meta.errors[0]}
+                                    </span>
+                                )}
+                            </label>
                             <div style={{ width: '100%', height: 500 }}>
                                 <AgGridReact
                                     rowData={rowData}
@@ -157,6 +164,7 @@ function RouteComponent() {
                 <form.Field
                     name='members'
                     mode='array'
+                    validators={{ onChange: ({ value }) => value.length === 0 ? 'Select at least one member' : undefined }}
                     children={({ state, handleChange }) => {
                         return (<Autocomplete
                             multiple
@@ -175,6 +183,8 @@ function RouteComponent() {
                                     {...params}
                                     variant="outlined"
                                     label="Search Members"
+                                    error={state.meta.isTouched && state.meta.errors.length > 0}
+                                    helperText={state.meta.isTouched ? state.meta.errors[0] : undefined}
                                 />
                             )}
                         />)
@@ -182,20 +192,15 @@ function RouteComponent() {
                 <form.Subscribe
                     selector={(state) => [state.canSubmit, state.isSubmitting]}
                     children={([canSubmit, isSubmitting]) => (
-                        <div>
-                            <Button type='reset' variant='outlined'>
-                                Reset
-                            </Button>
-                            <Button
-                                style={{ margin: 10 }}
-                                type='submit'
-                                variant='contained'
-                                disabled={!canSubmit}
-                                loading={isSubmitting}
-                            >
-                                Submit
-                            </Button>
-                        </div>
+                        <FormActionFooter
+                            canSubmit={canSubmit}
+                            isSubmitting={isSubmitting}
+                            submitLabel="Submit"
+                            successMessage={successMsg}
+                            errorMessage={errorMsg}
+                            onCloseSuccess={() => { setSuccessMsg(null) }}
+                            onCloseError={() => { setErrorMsg(null) }}
+                        />
                     )}
                 />
             </form>

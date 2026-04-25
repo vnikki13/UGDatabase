@@ -12,6 +12,11 @@ class TagBase(SQLModel):
 
 class Tag(TagBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(datetime.now().astimezone().tzinfo)
+    )
+    updated_at: datetime | None = Field(default=None)
+    deleted_at: datetime | None = Field(default=None)
 
 
 class TagCreate(TagBase):

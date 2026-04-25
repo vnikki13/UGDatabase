@@ -13,6 +13,7 @@ const routeLabelMap: Record<string, string> = {
     dashboard: 'Dashboard',
     question: 'Question',
     exam: 'Exam',
+    tag: 'Tag',
 }
 
 export const Route = createFileRoute('/_auth')({

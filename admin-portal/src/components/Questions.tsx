@@ -143,15 +143,9 @@ export function Questions() {
         <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
                 <Typography variant="h4" component="h1">Questions</Typography>
-                <Box sx={{display: 'flex', justifyContent: 'space-between', gap: 2}}>
-                    <Button variant="contained">
-                        Add Tag
-                    </Button>
-                    <Button variant="contained" onClick={() => navigate({ to: '/question' })}>
-                        Add Question
-                    </Button>
-                </Box>
-
+                <Button variant="contained" onClick={() => navigate({ to: '/question' })}>
+                    Add Question
+                </Button>
             </Box>
             <Box sx={{ height: { xs: '65vh', md: 500 }, minHeight: 420, width: '100%' }}>
                 <AgGridReact

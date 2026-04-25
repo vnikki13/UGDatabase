@@ -22,6 +22,13 @@ export interface Tag {
   name: string
 }
 
+export interface TagWithId {
+  id: string
+  name: string
+  created_at: string
+  updated_at: string | null
+}
+
 export interface AdminCreateExamRequest {
   member_uuids: string[]
   question_ids: string[]

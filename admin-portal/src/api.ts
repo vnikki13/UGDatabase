@@ -1,4 +1,4 @@
-import type { Questions, Question, Tag, Member, AdminCreateExamRequest, Exam } from './types'
+import type { Questions, Question, Tag, TagWithId, Member, AdminCreateExamRequest, Exam } from './types'
 import axios, { AxiosError } from 'axios'
 
 export interface CreateQuestionRequest {
@@ -51,8 +51,45 @@ export const getQuestion = async (questionId: string): Promise<Question> => {
   return (await axios.get(`${API_URL}/questions/${questionId}`)).data
 }
 
-export const getTags = async (): Promise<Tag[]> => {
+export const getTags = async (): Promise<TagWithId[]> => {
   return (await axios.get(`${API_URL}/tags/`)).data
+}
+
+export const getTagById = async (tagId: string): Promise<TagWithId> => {
+  return (await axios.get(`${API_URL}/tags/${tagId}`)).data
+}
+
+export const createTag = async (name: string): Promise<TagWithId> => {
+  try {
+    return (await axios.post(`${API_URL}/tags/`, { name }, { headers: { 'Content-Type': 'application/json' } })).data
+  } catch (err: unknown) {
+    if (err instanceof AxiosError) {
+      throw new Error(err?.response?.data?.detail || 'Failed to create tag')
+    }
+    throw new Error('Unable to create tag')
+  }
+}
+
+export const updateTag = async (tagId: string, name: string): Promise<TagWithId> => {
+  try {
+    return (await axios.put(`${API_URL}/tags/${tagId}`, { name }, { headers: { 'Content-Type': 'application/json' } })).data
+  } catch (err: unknown) {
+    if (err instanceof AxiosError) {
+      throw new Error(err?.response?.data?.detail || 'Failed to update tag')
+    }
+    throw new Error('Unable to update tag')
+  }
+}
+
+export const deleteTag = async (tagId: string): Promise<void> => {
+  try {
+    await axios.delete(`${API_URL}/tags/${tagId}`)
+  } catch (err: unknown) {
+    if (err instanceof AxiosError) {
+      throw new Error(err?.response?.data?.detail || 'Failed to delete tag')
+    }
+    throw new Error('Unable to delete tag')
+  }
 }
 
 export const createQuestion = async (data: CreateQuestionRequest, contentType?: string): Promise<Question & { upload_url?: string }> => {

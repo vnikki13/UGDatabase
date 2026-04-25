@@ -11,8 +11,7 @@ class TagBase(SQLModel):
 
 
 class Tag(TagBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4,
-                          primary_key=True, index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
 
 
 class TagCreate(TagBase):
@@ -30,31 +29,31 @@ class Tags(SQLModel):
 
 class Question_Tag(SQLModel, table=True):
     question_id: uuid.UUID = Field(
-        foreign_key='question.id', primary_key=True, ondelete='CASCADE')
-    tag_id: uuid.UUID = Field(foreign_key='tag.id', primary_key=True)
+        foreign_key="question.id", primary_key=True, ondelete="CASCADE"
+    )
+    tag_id: uuid.UUID = Field(foreign_key="tag.id", primary_key=True)
 
 
 class Exam_Tag(SQLModel, table=True):
     exam_id: uuid.UUID = Field(
-        foreign_key='exam.id', primary_key=True, ondelete='CASCADE')
-    tag_id: uuid.UUID = Field(foreign_key='tag.id', primary_key=True)
+        foreign_key="exam.id", primary_key=True, ondelete="CASCADE"
+    )
+    tag_id: uuid.UUID = Field(foreign_key="tag.id", primary_key=True)
 
 
 class QuestionBase(SQLModel):
     prompt: str
-    media_storage_path: str | None = Field(default=None)
     media_content_type: str | None = Field(default=None)
     explanation: str | None = Field(default=None)
 
 
 class Question(QuestionBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4,
-                          primary_key=True, index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
     version: int = Field(default=1)
-    base_question_id: uuid.UUID | None = Field(
-        default=None, foreign_key='question.id')
-    created_at: datetime = Field(default_factory=lambda: datetime.now(
-        datetime.now().astimezone().tzinfo))
+    base_question_id: uuid.UUID | None = Field(default=None, foreign_key="question.id")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(datetime.now().astimezone().tzinfo)
+    )
     updated_at: datetime | None = Field(default=None)
     deleted_at: datetime | None = Field(default=None)
 
@@ -65,10 +64,8 @@ class AnswerChoiceBase(SQLModel):
 
 
 class Answer_Choice(AnswerChoiceBase, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4,
-                          primary_key=True, index=True)
-    question_id: uuid.UUID = Field(
-        foreign_key='question.id', ondelete='CASCADE')
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    question_id: uuid.UUID = Field(foreign_key="question.id", ondelete="CASCADE")
 
 
 class QuestionCreate(QuestionBase):
@@ -109,18 +106,20 @@ class Questions(SQLModel):
     count: int
 
 
+class QuestionCreateResponse(QuestionRead):
+    upload_url: str | None = None
+
+
 # Exams
 class Exam(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4,
-                          primary_key=True, index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
     started_at: datetime
     updated_at: datetime | None
     completed_at: datetime | None = None
     score: int | None = None
     member_id: str
     question_count: int
-    filters: List[str] | None = Field(
-        default=None, sa_column=Column(ARRAY(String)))
+    filters: List[str] | None = Field(default=None, sa_column=Column(ARRAY(String)))
     deleted_at: datetime | None = Field(default=None)
 
 
@@ -152,11 +151,10 @@ class Exams(SQLModel):
 
 
 class Exam_Question(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4,
-                          primary_key=True, index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
     position: int
-    exam_id: uuid.UUID = Field(foreign_key='exam.id', ondelete='CASCADE')
-    question_id: uuid.UUID = Field(foreign_key='question.id')
+    exam_id: uuid.UUID = Field(foreign_key="exam.id", ondelete="CASCADE")
+    question_id: uuid.UUID = Field(foreign_key="question.id")
     question_version: int = Field(default=1)
 
 
@@ -166,11 +164,11 @@ class ExamQuestions(SQLModel):
 
 
 class Exam_Answer(SQLModel, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4,
-                          primary_key=True, index=True)
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
     exam_question_id: uuid.UUID = Field(
-        foreign_key='exam_question.id', ondelete='CASCADE')
-    answer_id: uuid.UUID = Field(foreign_key='answer_choice.id')
+        foreign_key="exam_question.id", ondelete="CASCADE"
+    )
+    answer_id: uuid.UUID = Field(foreign_key="answer_choice.id")
     started_at: datetime | None = None
 
 
@@ -184,7 +182,6 @@ class AnswerChoiceResponse(SQLModel):
 class ExamQuestionResponse(SQLModel):
     id: uuid.UUID
     prompt: str
-    media_storage_path: str | None
     media_content_type: str | None
     explanation: str | None
     position: int

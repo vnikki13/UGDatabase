@@ -7,13 +7,13 @@ React + TypeScript admin portal for UGDatabase.
 1. Install dependencies:
 
 ```bash
-npm install
+yarn install
 ```
 
 2. Start dev server:
 
 ```bash
-npm run dev
+yarn run dev
 ```
 
 3. Required local env vars (for example in `.env.local`):

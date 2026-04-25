@@ -32,10 +32,10 @@ function AuthLayout() {
                 }}
             >
                 <Logo />
-                <Typography variant="h5" component="h1">
+                <Typography variant="h5" component="h1" style={{textAlign: 'center'}}>
                     Ultrasound Guidance Admin Dashboard
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, padding: 2 }}>
                     <Avatar />
                     <LogoutButton />
                 </Box>

@@ -10,7 +10,8 @@ export function Logo() {
             onClick={() => window.location.href = '/dashboard'}
             sx={{
                 height: 100,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                padding: 2,
             }}
         />
     )

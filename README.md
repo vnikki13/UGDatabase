@@ -13,6 +13,7 @@ This codebase includes the postgres database, api endpoints and admin portal for
 
 ## Run API endpoints
 - Ensure you're in the `backend` folder
+- Run `gcloud auth application-default login`
 - Run `fastapi dev app/main.py`
 
 ## Run Admin Portal

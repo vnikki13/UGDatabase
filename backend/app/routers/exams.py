@@ -102,7 +102,6 @@ def get_missed_questions(member_id: str, session: SessionDep):
         QuestionReadWithUserAnswer(
             id=q.id,
             prompt=q.prompt,
-            media_storage_path=q.media_storage_path,
             media_content_type=q.media_content_type,
             explanation=q.explanation,
             answerChoices=answer_choices_by_question[q.id],
@@ -215,7 +214,6 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
             ExamQuestionResponse(
                 id=question.id,
                 prompt=question.prompt,
-                media_storage_path=question.media_storage_path,
                 media_content_type=question.media_content_type,
                 explanation=question.explanation,
                 position=eq.position,
@@ -384,7 +382,6 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
             ExamQuestionResponse(
                 id=question.id,
                 prompt=question.prompt,
-                media_storage_path=question.media_storage_path,
                 media_content_type=question.media_content_type,
                 explanation=question.explanation,
                 position=position,
@@ -424,7 +421,6 @@ def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
     Create an exam for each member in 'members' with the provided 'questionIds'.
     Adds 'admin' filter, sets updated_at to now, leaves started_at, completed_at, score, deleted_at empty.
     """
-    print('Im HERE!!')
     members = exam_in.member_uuids
     question_ids = exam_in.question_ids
     if not members or not question_ids:
@@ -466,7 +462,6 @@ def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
                     ExamQuestionResponse(
                         id=question.id,
                         prompt=question.prompt,
-                        media_storage_path=question.media_storage_path,
                         media_content_type=question.media_content_type,
                         explanation=question.explanation,
                         position=position,

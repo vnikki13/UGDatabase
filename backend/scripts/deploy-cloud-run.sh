@@ -14,7 +14,7 @@ GCS_BUCKET_NAME="${GCS_BUCKET_NAME:-question-bank-media}"
 GCS_PROJECT_ID="${GCS_PROJECT_ID:-ultrasound-guidance}"
 GHOST_URL="${GHOST_URL:-https://ultrasoundguidance.ghost.io}"
 GHOST_ADMIN_KEY_SECRET="${GHOST_ADMIN_KEY_SECRET:-backend-ghost-admin-key}"
-ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-http://localhost:5173,https://localhost,https://localhost:5173,http://localhost:2368,http://localhost:3000}"
+ALLOWED_ORIGINS="${ALLOWED_ORIGINS:-http://localhost:5173,https://localhost,https://localhost:5173,http://localhost:2368,http://localhost:3000,https://ug-admin.nikkivaughandev.com,https://ultrasoundguidance.com}"
 ADMIN_PORTAL_ORIGIN="${ADMIN_PORTAL_ORIGIN:-}"
 DEBUG="${DEBUG:-false}"
 

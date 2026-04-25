@@ -2,11 +2,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { createQuestion, getTags } from '../../api'
 import { type Tag } from '../../types'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { AxiosError } from 'axios'
 import { useAppForm } from '../../hooks/questionForm'
-import { FormControl, TextField, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, Button } from '@mui/material'
+import { FormControl, TextField, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, Button, Box, CircularProgress } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
+import { FilePond, registerPlugin } from 'react-filepond'
+import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type'
+import 'filepond/dist/filepond.min.css'
+import type { FilePondFile } from 'filepond'
+
+registerPlugin(FilePondPluginFileValidateType)
 
 export const Route = createFileRoute('/_auth/question/')({
     component: RouteComponent,
@@ -19,7 +25,6 @@ type AnswerChoiceFormValues = {
 
 type QuestionFormValues = {
     prompt: string
-    mediaStoragePath?: string
     mediaContentType?: string
     explanation?: string
     tags: Tag[]
@@ -29,16 +34,37 @@ type QuestionFormValues = {
 function RouteComponent() {
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState<boolean>(false);
+    const [files, setFiles] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const createdQuestionIdRef = useRef<string | null>(null);
 
     const { data: tagOptions = [] } = useQuery({
         queryKey: ['tags'],
         queryFn: getTags,
     });
 
+    const uploadFileToGCS = async (file: File, uploadUrl: string): Promise<void> => {
+        try {
+            const response = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file,
+                headers: {
+                    'Content-Type': file.type,
+                },
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`Failed to upload file (${response.status}): ${errorBody || response.statusText}`);
+            }
+        } catch (err) {
+            throw new Error(err instanceof Error ? err.message : 'Failed to upload file to storage');
+        }
+    };
+
     const form = useAppForm({
         defaultValues: {
             prompt: '',
-            mediaStoragePath: '',
             mediaContentType: '',
             explanation: '',
             tags: [],
@@ -47,22 +73,38 @@ function RouteComponent() {
         onSubmit: async ({ value }) => {
             setSubmitError(null);
             setSubmitSuccess(false);
+            setIsUploading(true);
+
             try {
+                const file = files.length > 0 ? files[0] : null;
                 const payload = {
                     prompt: value.prompt,
-                    media_storage_path: value.mediaStoragePath || null,
-                    media_content_type: value.mediaContentType || null,
+                    media_content_type: null,
                     explanation: value.explanation,
                     tags: value.tags,
                     answerChoices: value.answerChoices,
                 };
-                await createQuestion(payload);
+                const createdQuestion = await createQuestion(payload, file?.type);
+                createdQuestionIdRef.current = createdQuestion.id;
+
+                // Upload file directly to the signed URL returned with the question
+                if (file && createdQuestion.upload_url) {
+                    await uploadFileToGCS(file, createdQuestion.upload_url);
+                }
+
                 setSubmitSuccess(true);
                 form.reset();
+                setFiles([]);
             } catch (err: unknown) {
                 if (err instanceof AxiosError) {
                     setSubmitError(err?.message || 'Failed to create question');
+                } else if (err instanceof Error) {
+                    setSubmitError(err.message);
+                } else {
+                    setSubmitError('Failed to create question');
                 }
+            } finally {
+                setIsUploading(false);
             }
         },
     })
@@ -95,18 +137,46 @@ function RouteComponent() {
                             <field.TextField label='Explanation' />
                         )}
                     />
-                    <form.AppField
-                        name='mediaStoragePath'
-                        children={(field) => (
-                            <field.TextField label='Media Storage Path' isRequired={false} />
+                    <Box sx={{ my: 2 }}>
+                        <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Media (Optional)</label>
+                        {files.length > 0 && (
+                            <Box sx={{ marginBottom: 2, padding: 2, backgroundColor: '#f0f7ff', borderRadius: 1, border: '1px solid #b3d9ff' }}>
+                                <div style={{ marginBottom: 8, fontSize: 14, color: '#0066cc', fontWeight: 500 }}>Media preview:</div>
+                                {files[0].type.startsWith('image/') ? (
+                                    <img
+                                        src={URL.createObjectURL(files[0])}
+                                        alt="Media preview"
+                                        style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
+                                    />
+                                ) : files[0].type === 'video/mp4' ? (
+                                    <video
+                                        src={URL.createObjectURL(files[0])}
+                                        controls
+                                        style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
+                                    />
+                                ) : files[0].type === 'application/pdf' ? (
+                                    <iframe
+                                        src={URL.createObjectURL(files[0])}
+                                        style={{ width: '100%', height: 400, borderRadius: 4 }}
+                                    />
+                                ) : (
+                                    <div style={{ fontSize: 14, color: '#666' }}>
+                                        File: {files[0].name}
+                                    </div>
+                                )}
+                            </Box>
                         )}
-                    />
-                    <form.AppField
-                        name='mediaContentType'
-                        children={(field) => (
-                            <field.TextField label='Media Content Type' isRequired={false} />
-                        )}
-                    />
+                        <FilePond
+                            files={files}
+                            onupdatefiles={(fileItems: FilePondFile[]) => {
+                                setFiles(fileItems.map((fileItem) => fileItem.file as File));
+                            }}
+                            maxFiles={1}
+                            acceptedFileTypes={['image/png', 'image/jpeg', 'image/jpg', 'video/mp4', 'application/pdf']}
+                            labelIdle='Drag and drop your media file or <span class="filepond--label-action">browse</span>'
+                            credits={false}
+                        />
+                    </Box>
                     <form.Field
                         name="tags"
                         mode="array"
@@ -194,19 +264,20 @@ function RouteComponent() {
                     <form.Subscribe
                         selector={(state) => [state.canSubmit, state.isSubmitting]}
                         children={([canSubmit, isSubmitting]) => (
-                            <div>
-                                <Button type='reset' variant='outlined'>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Button type='reset' variant='outlined' disabled={isUploading || isSubmitting}>
                                     Reset
                                 </Button>
                                 <Button
                                     style={{ margin: 10 }}
                                     type='submit'
                                     variant='contained'
-                                    disabled={!canSubmit}
+                                    disabled={!canSubmit || isUploading || isSubmitting}
                                     loading={isSubmitting}
                                 >
-                                    Submit
+                                    {isUploading ? 'Uploading...' : 'Submit'}
                                 </Button>
+                                {isUploading && <CircularProgress size={24} />}
                             </div>
                         )}
                     />

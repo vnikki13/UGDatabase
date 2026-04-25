@@ -5,7 +5,6 @@ export interface Questions {
 
 export interface Question {
   prompt: string
-  media_storage_path: null | string
   media_content_type: null | string
   explanation: string
   id: string

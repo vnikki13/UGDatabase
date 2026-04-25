@@ -1,6 +1,6 @@
 import uuid
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
 
@@ -9,12 +9,14 @@ from app.models import (
     Answer_Choice,
     Question,
     QuestionCreate,
+    QuestionCreateResponse,
     QuestionRead,
     QuestionUpdate,
     Questions,
     Tag,
     Question_Tag,
 )
+from app.storage import delete_media, get_bucket, get_signing_credentials
 
 
 router = APIRouter(prefix="/questions", tags=["questions"])
@@ -63,7 +65,6 @@ def read_questions(session: SessionDep):
         QuestionRead(
             id=q.id,
             prompt=q.prompt,
-            media_storage_path=q.media_storage_path,
             media_content_type=q.media_content_type,
             explanation=q.explanation,
             answerChoices=answer_choices_by_question[q.id],
@@ -100,7 +101,6 @@ def read_question_by_id(question_id: uuid.UUID, session: SessionDep):
     return QuestionRead(
         id=question.id,
         prompt=question.prompt,
-        media_storage_path=question.media_storage_path,
         media_content_type=question.media_content_type,
         explanation=question.explanation,
         answerChoices=answer_choices,
@@ -109,8 +109,10 @@ def read_question_by_id(question_id: uuid.UUID, session: SessionDep):
     )
 
 
-@router.post("/", response_model=QuestionRead)
-def create_question(*, session: SessionDep, question_in: QuestionCreate):
+@router.post("/", response_model=QuestionCreateResponse)
+def create_question(
+    *, session: SessionDep, question_in: QuestionCreate, content_type: str | None = None
+):
     question_create = QuestionCreate.model_validate(question_in)
 
     # Validate and fetch all tags in one query
@@ -164,21 +166,40 @@ def create_question(*, session: SessionDep, question_in: QuestionCreate):
         tag_ids = [qt.tag_id for qt in question_tag_links]
         tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
 
-    return QuestionRead(
+    upload_url = None
+    if content_type:
+        filename = f"questions/{question.id}"
+        blob = get_bucket().blob(filename)
+        upload_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=15),
+            method="PUT",
+            content_type=content_type,
+            credentials=get_signing_credentials(),
+        )
+        question.media_content_type = content_type
+        session.add(question)
+        session.commit()
+
+    return QuestionCreateResponse(
         id=question.id,
         prompt=question.prompt,
-        media_storage_path=question.media_storage_path,
         media_content_type=question.media_content_type,
         explanation=question.explanation,
         answerChoices=answer_choices,
         tags=tags or None,
         deleted_at=question.deleted_at,
+        upload_url=upload_url,
     )
 
 
-@router.put("/{question_id}", response_model=QuestionRead)
+@router.put("/{question_id}", response_model=QuestionCreateResponse)
 def update_question(
-    *, session: SessionDep, question_id: uuid.UUID, question_in: QuestionUpdate
+    *,
+    session: SessionDep,
+    question_id: uuid.UUID,
+    question_in: QuestionUpdate,
+    content_type: str | None = None,
 ):
     old_question = session.get(Question, question_id)
     if not old_question:
@@ -197,16 +218,16 @@ def update_question(
         exclude_unset=True, exclude={"tags", "answerChoices"}
     )
 
+    # Always explicitly set media_content_type from request (allow None to delete)
+    # If a new upload is requested, prefer the upload content type.
+    new_media_content_type = content_type or question_in.media_content_type
+
     # Create new question with updated fields
     new_question = Question(
         prompt=update_dict.get("prompt", old_question.prompt),
-        media_storage_path=update_dict.get(
-            "media_storage_path", old_question.media_storage_path
-        ),
-        media_content_type=update_dict.get(
-            "media_content_type", old_question.media_content_type
-        ),
+        media_content_type=new_media_content_type,
         explanation=update_dict.get("explanation", old_question.explanation),
+        updated_at=datetime.now(UTC),
         version=new_version,
         base_question_id=base_id,
     )
@@ -266,6 +287,31 @@ def update_question(
         ]
         session.add_all(new_choices)
 
+    upload_url = None
+    if content_type:
+        # Generate a signed upload URL for the newly versioned question ID.
+        filename = f"questions/{new_question.id}"
+        blob = get_bucket().blob(filename)
+        upload_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=15),
+            method="PUT",
+            content_type=content_type,
+            credentials=get_signing_credentials(),
+        )
+    elif old_question.media_content_type and new_media_content_type:
+        # Preserve media across versions by copying the old object's bytes
+        # from questions/{old_id} to questions/{new_id}.
+        old_filename = f"questions/{old_question.id}"
+        new_filename = f"questions/{new_question.id}"
+        bucket = get_bucket()
+        old_blob = bucket.blob(old_filename)
+        if old_blob.exists():
+            bucket.copy_blob(old_blob, bucket, new_filename)
+        else:
+            # Avoid stale media metadata when storage object is missing.
+            new_question.media_content_type = None
+
     session.commit()
     session.refresh(new_question)
 
@@ -287,15 +333,15 @@ def update_question(
         tag_ids = [qt.tag_id for qt in question_tag_links]
         tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
 
-    return QuestionRead(
+    return QuestionCreateResponse(
         id=new_question.id,
         prompt=new_question.prompt,
-        media_storage_path=new_question.media_storage_path,
         media_content_type=new_question.media_content_type,
         explanation=new_question.explanation,
         answerChoices=answer_choices,
         tags=tags or None,
         deleted_at=new_question.deleted_at,
+        upload_url=upload_url,
     )
 
 
@@ -316,6 +362,10 @@ def hard_delete_question(session: SessionDep, question_id: uuid.UUID):
     question = session.get(Question, question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
+
+    # Delete media from storage if it exists
+    if question.media_content_type:
+        delete_media(f"questions/{question_id}")
 
     # Delete the question (CASCADE will delete related answer_choices and question_tag)
     session.delete(question)

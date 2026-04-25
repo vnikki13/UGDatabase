@@ -11,7 +11,6 @@ import { useNavigate } from '@tanstack/react-router';
 interface GridRow {
     id: string;
     prompt: string;
-    media_storage_path: string | null;
     media_content_type: string | null;
     explanation: string;
     tags: string;
@@ -34,11 +33,6 @@ export function Questions() {
         },
         {
             field: "prompt",
-            spanRows: customSpanFunc,
-        },
-        {
-            field: "media_storage_path",
-            headerName: 'Media Storage Path',
             spanRows: customSpanFunc,
         },
         {
@@ -108,7 +102,6 @@ export function Questions() {
                 flattenedRows.push({
                     id: question.id,
                     prompt: question.prompt,
-                    media_storage_path: question.media_storage_path,
                     media_content_type: question.media_content_type,
                     explanation: question.explanation,
                     tags,
@@ -143,6 +136,8 @@ export function Questions() {
                         minWidth: 100
                     }}
                     enableCellSpan={true}
+                    enableCellTextSelection={true}
+                    ensureDomOrder={true}
                 />
             </div>
         </>

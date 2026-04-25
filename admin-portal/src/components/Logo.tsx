@@ -9,9 +9,10 @@ export function Logo() {
             alt="Home"
             onClick={() => window.location.href = '/dashboard'}
             sx={{
-                height: 100,
+                height: { xs: 60, sm: 80, md: 100 },
+                width: 'auto',
                 cursor: 'pointer',
-                padding: 2,
+                padding: { xs: 0.5, sm: 1, md: 2 },
             }}
         />
     )

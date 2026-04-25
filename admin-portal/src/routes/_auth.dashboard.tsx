@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Questions } from '../components/Questions'
+import { Exams } from '../components/Exams'
+import Box from '@mui/material/Box'
 
 export const Route = createFileRoute('/_auth/dashboard')({
     component: RouteComponent,
@@ -7,8 +9,11 @@ export const Route = createFileRoute('/_auth/dashboard')({
 
 function RouteComponent() {
     return (
-        <section className="grid gap-2 p-2">
-            <Questions />
-        </section>
+        <Box>
+            <Box sx={{ mb: 6 }}>
+                <Questions />
+            </Box>
+            <Exams />
+        </Box>
     )
 }

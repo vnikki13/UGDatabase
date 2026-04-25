@@ -28,7 +28,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 export function App() {
     const auth = useAuth()
     return (
-        <Box sx={{marginX: 10}}>
+        <Box sx={{ mx: { xs: 1, sm: 2, md: 6, lg: 10 } }}>
             <GoogleOAuthProvider clientId={import.meta.env.VITE_GCS_CLIENT_ID}>
             <RouterProvider router={router} context={{ auth }} />
             </GoogleOAuthProvider>

@@ -5,6 +5,10 @@ import type { ColDef, SpanRowsParams } from 'ag-grid-community';
 import { useQuery } from '@tanstack/react-query';
 import { getQuestions } from '../api';
 import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { useNavigate } from '@tanstack/react-router';
 
 
@@ -26,59 +30,78 @@ const customSpanFunc = ({ nodeA, nodeB }: SpanRowsParams) => {
 
 export function Questions() {
     const navigate = useNavigate();
-    const colDefs: ColDef<GridRow>[] = [
-        {
-            field: 'id',
-            spanRows: customSpanFunc,
-        },
-        {
-            field: "prompt",
-            spanRows: customSpanFunc,
-        },
-        {
-            field: "media_content_type",
-            headerName: 'Media Content Type',
-            spanRows: customSpanFunc,
-        },
-        {
-            field: "explanation",
-            spanRows: customSpanFunc,
-        },
-        {
-            field: "tags",
-            spanRows: customSpanFunc,
-        },
-        {
-            field: "answerText",
-            headerName: "Answer Choice Text"
-        },
-        {
-            field: "isCorrect",
-            headerName: "Is Correct",
-            cellRenderer: (params: CustomCellRendererProps) => params.value ? '✅' : '❌'
-        },
-        {
-            field: 'edit',
-            headerName: 'Edit',
-            cellRenderer: (params: CustomCellRendererProps) => (
-                <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => (
-                        navigate({
-                            to: `/question/${params.data.id}`,
-                            params: { questionId: params.data.id }
-                        })
-                    )}
-                >
-                    Edit
-                </Button>
-            ),
-            width: 100,
-            pinned: 'right',
-            spanRows: customSpanFunc,
-        },
-    ];
+    const theme = useTheme();
+    const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
+
+    const colDefs: ColDef<GridRow>[] = useMemo(() => {
+        const columns: ColDef<GridRow>[] = [
+            {
+                field: 'id',
+                spanRows: customSpanFunc,
+                hide: isSmallScreen,
+            },
+            {
+                field: "prompt",
+                spanRows: customSpanFunc,
+                flex: isSmallScreen ? 2 : 1,
+                minWidth: isSmallScreen ? 180 : 120,
+            },
+            {
+                field: "media_content_type",
+                headerName: 'Media Content Type',
+                spanRows: customSpanFunc,
+                hide: isSmallScreen,
+            },
+            {
+                field: "explanation",
+                spanRows: customSpanFunc,
+                hide: isSmallScreen,
+            },
+            {
+                field: "tags",
+                spanRows: customSpanFunc,
+                hide: isSmallScreen,
+            },
+            {
+                field: "answerText",
+                headerName: "Answer Choice",
+                flex: isSmallScreen ? 1.5 : 1,
+                minWidth: isSmallScreen ? 160 : 120,
+            },
+            {
+                field: "isCorrect",
+                headerName: "Correct",
+                cellRenderer: (params: CustomCellRendererProps) => params.value ? '✅' : '❌',
+                width: isSmallScreen ? 90 : 110,
+                minWidth: isSmallScreen ? 90 : 110,
+                maxWidth: isSmallScreen ? 90 : 110,
+            },
+            {
+                field: 'edit',
+                headerName: 'Edit',
+                cellRenderer: (params: CustomCellRendererProps) => (
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => (
+                            navigate({
+                                to: `/question/${params.data.id}`,
+                                params: { questionId: params.data.id }
+                            })
+                        )}
+                    >
+                        Edit
+                    </Button>
+                ),
+                width: isSmallScreen ? 90 : 100,
+                minWidth: isSmallScreen ? 90 : 100,
+                pinned: isSmallScreen ? undefined : 'right',
+                spanRows: customSpanFunc,
+            },
+        ];
+
+        return columns;
+    }, [isSmallScreen, navigate]);
 
     const { data: questions } = useQuery({
         queryKey: ['questions'],
@@ -118,8 +141,19 @@ export function Questions() {
 
     return (
         <>
-            <h1 style={{ justifySelf: 'center' }}>Questions</h1>
-            <div style={{ height: 500 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+                <Typography variant="h4" component="h1">Questions</Typography>
+                <Box sx={{display: 'flex', justifyContent: 'space-between', gap: 2}}>
+                    <Button variant="contained">
+                        Add Tag
+                    </Button>
+                    <Button variant="contained" onClick={() => navigate({ to: '/question' })}>
+                        Add Question
+                    </Button>
+                </Box>
+
+            </Box>
+            <Box sx={{ height: { xs: '65vh', md: 500 }, minHeight: 420, width: '100%' }}>
                 <AgGridReact
                     rowData={rowData}
                     columnDefs={colDefs}
@@ -131,15 +165,17 @@ export function Questions() {
                         cellStyle: {
                             'wordBreak': 'normal',
                             'lineHeight': 'unset',
-                            'padding': '10px'
+                            'padding': isSmallScreen ? '8px' : '10px'
                         },
-                        minWidth: 100
+                        minWidth: isSmallScreen ? 90 : 100,
+                        resizable: true,
                     }}
                     enableCellSpan={true}
                     enableCellTextSelection={true}
                     ensureDomOrder={true}
+                    rowHeight={isSmallScreen ? 52 : 44}
                 />
-            </div>
+            </Box>
         </>
     )
 }

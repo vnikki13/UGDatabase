@@ -226,10 +226,19 @@ function RouteComponent() {
                             handleChange(updated);
                         };
                         return (
-                            <FormControl component="fieldset" sx={{ m: 1, width: 400 }}>
+                            <FormControl component="fieldset" sx={{ m: 1, width: { xs: '100%', sm: 400 } }}>
                                 <label style={{ marginBottom: 8 }}>Answer Choices</label>
                                 {answerChoices.map((choice, idx) => (
-                                    <div key={idx} style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                                    <Box
+                                        key={idx}
+                                        sx={{
+                                            display: 'flex',
+                                            flexDirection: { xs: 'column', sm: 'row' },
+                                            alignItems: { xs: 'flex-start', sm: 'center' },
+                                            marginBottom: 1.5,
+                                            gap: { xs: 0.5, sm: 0 },
+                                        }}
+                                    >
                                         <TextField
                                             label={`Choice ${idx + 1}`}
                                             variant="outlined"
@@ -237,18 +246,22 @@ function RouteComponent() {
                                             onChange={(e) => handleTextChange(idx, e.target.value)}
                                             multiline
                                             required
-                                            sx={{ flex: 1, marginRight: 2 }}
+                                            sx={{ flex: 1, width: '100%', marginRight: { sm: 2 } }}
                                         />
-                                        <input
-                                            type="radio"
-                                            name="correctAnswer"
-                                            checked={choice.is_correct}
-                                            onChange={() => handleRadioChange(idx)}
-                                            required
-                                            style={{ marginLeft: 8 }}
-                                        />
-                                        <span style={{ marginLeft: 4 }}>Correct</span>
-                                    </div>
+                                        <Box
+                                            component="label"
+                                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: { xs: 0, sm: 1 }, cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent' }}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="correctAnswer"
+                                                checked={choice.is_correct}
+                                                onChange={() => handleRadioChange(idx)}
+                                                required
+                                            />
+                                            Correct
+                                        </Box>
+                                    </Box>
                                 ))}
                             </FormControl>
                         );

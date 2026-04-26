@@ -1,9 +1,10 @@
 import uuid
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from sqlmodel import select
 
+from app.audit import get_audit_context, record_audit_event
 from app.db.database import SessionDep
 from app.models import (
     Answer_Choice,
@@ -20,6 +21,48 @@ from app.storage import delete_media, get_bucket, get_signing_credentials
 
 
 router = APIRouter(prefix="/questions", tags=["questions"])
+
+
+def _serialize_question(question: Question):
+    return {
+        "id": str(question.id),
+        "base_question_id": (
+            str(question.base_question_id) if question.base_question_id else None
+        ),
+        "version": question.version,
+        "prompt": question.prompt,
+        "media_content_type": question.media_content_type,
+        "explanation": question.explanation,
+        "created_at": question.created_at.isoformat() if question.created_at else None,
+        "updated_at": question.updated_at.isoformat() if question.updated_at else None,
+        "deleted_at": question.deleted_at.isoformat() if question.deleted_at else None,
+    }
+
+
+def _serialize_question_state(session, question_id: uuid.UUID):
+    question = session.get(Question, question_id)
+    if not question:
+        return None
+
+    answer_choices = session.exec(
+        select(Answer_Choice).where(Answer_Choice.question_id == question_id)
+    ).all()
+    question_tag_links = session.exec(
+        select(Question_Tag).where(Question_Tag.question_id == question_id)
+    ).all()
+    tags = []
+    if question_tag_links:
+        tag_ids = [qt.tag_id for qt in question_tag_links]
+        tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
+
+    return {
+        **_serialize_question(question),
+        "answerChoices": [
+            {"id": str(ac.id), "text": ac.text, "is_correct": ac.is_correct}
+            for ac in answer_choices
+        ],
+        "tags": [{"id": str(tag.id), "name": tag.name} for tag in tags],
+    }
 
 
 @router.get("/")
@@ -111,7 +154,11 @@ def read_question_by_id(question_id: uuid.UUID, session: SessionDep):
 
 @router.post("/", response_model=QuestionCreateResponse)
 def create_question(
-    *, session: SessionDep, question_in: QuestionCreate, content_type: str | None = None
+    *,
+    session: SessionDep,
+    request: Request,
+    question_in: QuestionCreate,
+    content_type: str | None = None,
 ):
     question_create = QuestionCreate.model_validate(question_in)
 
@@ -181,6 +228,17 @@ def create_question(
         session.add(question)
         session.commit()
 
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="question.create",
+        entity_type="question",
+        entity_id=question.id,
+        after=_serialize_question_state(session, question.id),
+    )
+    session.commit()
+
     return QuestionCreateResponse(
         id=question.id,
         prompt=question.prompt,
@@ -197,6 +255,7 @@ def create_question(
 def update_question(
     *,
     session: SessionDep,
+    request: Request,
     question_id: uuid.UUID,
     question_in: QuestionUpdate,
     content_type: str | None = None,
@@ -204,6 +263,8 @@ def update_question(
     old_question = session.get(Question, question_id)
     if not old_question:
         raise HTTPException(status_code=404, detail="Question not found")
+
+    before_snapshot = _serialize_question_state(session, question_id)
 
     # Create a new version of the question
     base_id = (
@@ -315,6 +376,23 @@ def update_question(
     session.commit()
     session.refresh(new_question)
 
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="question.update",
+        entity_type="question",
+        entity_id=new_question.id,
+        before=before_snapshot,
+        after=_serialize_question_state(session, new_question.id),
+        metadata={
+            "previous_question_id": str(old_question.id),
+            "base_question_id": str(base_id),
+            "new_version": new_version,
+        },
+    )
+    session.commit()
+
     # Refresh answer choices to get their IDs
     for ac in new_choices:
         session.refresh(ac)
@@ -346,22 +424,36 @@ def update_question(
 
 
 @router.delete("/{question_id}")
-def soft_delete_question(session: SessionDep, question_id: uuid.UUID):
+def soft_delete_question(session: SessionDep, request: Request, question_id: uuid.UUID):
     question = session.get(Question, question_id)
     if not question or question.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Question not found")
 
+    before_snapshot = _serialize_question_state(session, question_id)
     question.deleted_at = datetime.now(UTC)
     session.add(question)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="question.delete",
+        entity_type="question",
+        entity_id=question.id,
+        before=before_snapshot,
+        after=_serialize_question_state(session, question_id),
+        metadata={"delete_type": "soft"},
+    )
     session.commit()
     return {"message": "Question soft deleted successfully"}
 
 
 @router.delete("/{question_id}/hard")
-def hard_delete_question(session: SessionDep, question_id: uuid.UUID):
+def hard_delete_question(session: SessionDep, request: Request, question_id: uuid.UUID):
     question = session.get(Question, question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
+
+    before_snapshot = _serialize_question_state(session, question_id)
 
     # Delete media from storage if it exists
     if question.media_content_type:
@@ -369,5 +461,16 @@ def hard_delete_question(session: SessionDep, question_id: uuid.UUID):
 
     # Delete the question (CASCADE will delete related answer_choices and question_tag)
     session.delete(question)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="question.delete",
+        entity_type="question",
+        entity_id=question_id,
+        before=before_snapshot,
+        after=None,
+        metadata={"delete_type": "hard"},
+    )
     session.commit()
     return {"message": "Question permanently deleted"}

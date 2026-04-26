@@ -9,6 +9,7 @@ import type { GridApi, ColDef } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
 import { AxiosError } from 'axios';
 import { FormActionFooter } from '../../components/FormActionFooter';
+import { useAuth } from '../../auth';
 
 interface GridRow {
     id: string
@@ -27,6 +28,7 @@ type ExamFormValues = {
 }
 
 function RouteComponent() {
+    const { user } = useAuth();
     const [memberOptions, setMemberOptions] = useState<Member[]>([]);
     const [searchValue, setSearchValue] = useState('');
     const [loading, setLoading] = useState(false);
@@ -84,7 +86,7 @@ function RouteComponent() {
                 await createAdminExam({
                     member_uuids,
                     question_ids: value.questionIds,
-                });
+                }, user?.email);
                 setSuccessMsg('Exam created successfully!');
                 setErrorMsg(null);
                 // Explicitly clear UI/form selections, but ignore the programmatic grid

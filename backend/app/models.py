@@ -1,7 +1,7 @@
-from datetime import datetime
-from typing import List
+from datetime import datetime, UTC
+from typing import Any, List
 import uuid
-from sqlalchemy import ARRAY, Column, String
+from sqlalchemy import ARRAY, Column, String, JSON
 from sqlmodel import Field, SQLModel
 
 
@@ -176,6 +176,22 @@ class Exam_Answer(SQLModel, table=True):
     )
     answer_id: uuid.UUID = Field(foreign_key="answer_choice.id")
     started_at: datetime | None = None
+
+
+class AuditEvent(SQLModel, table=True):
+    __tablename__ = "audit_event"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
+    request_id: str | None = Field(default=None, index=True)
+    actor_email: str | None = Field(default=None, index=True)
+    actor_source: str = Field(default="unknown")
+    action: str = Field(index=True)
+    entity_type: str = Field(index=True)
+    entity_id: uuid.UUID | None = Field(default=None, index=True)
+    before_json: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    after_json: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    metadata_json: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
 
 # Response Models

@@ -20,6 +20,14 @@ This codebase includes the postgres database, api endpoints and admin portal for
 - Ensure you're in the `admin-portal` folder
 - Run `npm run dev`
 
+## Run Tests
+- Ensure you're in the `backend` folder
+- Activate the backend virtual environment: `source .venv/bin/activate`
+- Run tests with the active interpreter: `python -m pytest tests/ -v`
+- Run a single test file: `python -m pytest tests/test_audit_questions.py -v`
+
+Using `python -m pytest` ensures tests run with the selected environment and avoids import path issues.
+
 ## Migrations
 - Ensure you're in the `backend` folder
 - Make changes to the models

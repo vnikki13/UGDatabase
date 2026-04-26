@@ -7,6 +7,7 @@ import { FormActionFooter } from '../../components/FormActionFooter'
 import { useQueryClient } from '@tanstack/react-query'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import { useAuth } from '../../auth'
 
 export const Route = createFileRoute('/_auth/tag/')({
     component: RouteComponent,
@@ -14,6 +15,7 @@ export const Route = createFileRoute('/_auth/tag/')({
 
 function RouteComponent() {
     const queryClient = useQueryClient()
+    const { user } = useAuth()
     const [submitSuccess, setSubmitSuccess] = useState(false)
     const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -21,7 +23,7 @@ function RouteComponent() {
         defaultValues: { name: '' },
         onSubmit: async ({ value }) => {
             try {
-                await createTag(value.name)
+                await createTag(value.name, user?.email)
                 await queryClient.invalidateQueries({ queryKey: ['tags'] })
                 setSubmitSuccess(true)
                 setSubmitError(null)

@@ -1,4 +1,4 @@
-import type { Questions, Question, Tag, TagWithId, Member, AdminCreateExamRequest, Exam } from './types'
+import type { Questions, Question, Tag, TagWithId, Member, AdminCreateExamRequest, Exam, AuditEvent } from './types'
 import axios, { AxiosError } from 'axios'
 
 export interface CreateQuestionRequest {
@@ -59,9 +59,22 @@ export const getTagById = async (tagId: string): Promise<TagWithId> => {
   return (await axios.get(`${API_URL}/tags/${tagId}`)).data
 }
 
-export const createTag = async (name: string): Promise<TagWithId> => {
+function actorHeaders(actorEmail?: string | null): Record<string, string> {
+  if (!actorEmail) {
+    return {}
+  }
+  return { 'x-admin-email': actorEmail }
+}
+
+export const createTag = async (name: string, actorEmail?: string | null): Promise<TagWithId> => {
   try {
-    return (await axios.post(`${API_URL}/tags/`, { name }, { headers: { 'Content-Type': 'application/json' } })).data
+    return (
+      await axios.post(
+        `${API_URL}/tags/`,
+        { name },
+        { headers: { 'Content-Type': 'application/json', ...actorHeaders(actorEmail) } },
+      )
+    ).data
   } catch (err: unknown) {
     if (err instanceof AxiosError) {
       throw new Error(err?.response?.data?.detail || 'Failed to create tag')
@@ -70,9 +83,15 @@ export const createTag = async (name: string): Promise<TagWithId> => {
   }
 }
 
-export const updateTag = async (tagId: string, name: string): Promise<TagWithId> => {
+export const updateTag = async (tagId: string, name: string, actorEmail?: string | null): Promise<TagWithId> => {
   try {
-    return (await axios.put(`${API_URL}/tags/${tagId}`, { name }, { headers: { 'Content-Type': 'application/json' } })).data
+    return (
+      await axios.put(
+        `${API_URL}/tags/${tagId}`,
+        { name },
+        { headers: { 'Content-Type': 'application/json', ...actorHeaders(actorEmail) } },
+      )
+    ).data
   } catch (err: unknown) {
     if (err instanceof AxiosError) {
       throw new Error(err?.response?.data?.detail || 'Failed to update tag')
@@ -81,9 +100,9 @@ export const updateTag = async (tagId: string, name: string): Promise<TagWithId>
   }
 }
 
-export const deleteTag = async (tagId: string): Promise<void> => {
+export const deleteTag = async (tagId: string, actorEmail?: string | null): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/tags/${tagId}`)
+    await axios.delete(`${API_URL}/tags/${tagId}`, { headers: actorHeaders(actorEmail) })
   } catch (err: unknown) {
     if (err instanceof AxiosError) {
       throw new Error(err?.response?.data?.detail || 'Failed to delete tag')
@@ -92,11 +111,16 @@ export const deleteTag = async (tagId: string): Promise<void> => {
   }
 }
 
-export const createQuestion = async (data: CreateQuestionRequest, contentType?: string): Promise<Question & { upload_url?: string }> => {
+export const createQuestion = async (
+  data: CreateQuestionRequest,
+  contentType?: string,
+  actorEmail?: string | null,
+): Promise<Question & { upload_url?: string }> => {
   try {
     const res = await axios.post(`${API_URL}/questions/`, data, {
       headers: {
         'Content-Type': 'application/json',
+        ...actorHeaders(actorEmail),
       },
       params: contentType ? { content_type: contentType } : undefined,
     });
@@ -114,11 +138,13 @@ export const updateQuestion = async (
   id: string,
   data: UpdateQuestionRequest,
   contentType?: string,
+  actorEmail?: string | null,
 ): Promise<Question & { upload_url?: string }> => {
   try {
     const res = await axios.put(`${API_URL}/questions/${id}`, data, {
       headers: {
         'Content-Type': 'application/json',
+        ...actorHeaders(actorEmail),
       },
       params: contentType ? { content_type: contentType } : undefined,
     });
@@ -133,9 +159,14 @@ export const updateQuestion = async (
 }
 
 
-export const getSignedUploadUrl = async (questionId: string, contentType: string) => {
+export const getSignedUploadUrl = async (
+  questionId: string,
+  contentType: string,
+  actorEmail?: string | null,
+) => {
   try {
     const res = await axios.post(`${API_URL}/media/upload-url`, null, {
+      headers: actorHeaders(actorEmail),
       params: {
         question_id: questionId,
         content_type: contentType,
@@ -168,11 +199,12 @@ export const getSignedDownloadUrl = async (questionId: string) => {
   }
 }
 
-export const createAdminExam = async (data: AdminCreateExamRequest): Promise<Exam[]> => {
+export const createAdminExam = async (data: AdminCreateExamRequest, actorEmail?: string | null): Promise<Exam[]> => {
     try {
     const res = await axios.post(`${API_URL}/exams/admin`, data, {
       headers: {
         'Content-Type': 'application/json',
+        ...actorHeaders(actorEmail),
       },
     });
     return res.data;
@@ -183,5 +215,17 @@ export const createAdminExam = async (data: AdminCreateExamRequest): Promise<Exa
       throw new Error('Unable to create admin exam')
     }
   }
+}
+
+export const getAuditHistory = async (
+  entityType: string,
+  entityId: string,
+  limit = 50,
+): Promise<AuditEvent[]> => {
+  return (
+    await axios.get(`${API_URL}/audit-events/`, {
+      params: { entity_type: entityType, entity_id: entityId, limit },
+    })
+  ).data
 }
 

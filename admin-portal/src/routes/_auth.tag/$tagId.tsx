@@ -15,6 +15,8 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogContentText from '@mui/material/DialogContentText'
 import DialogActions from '@mui/material/DialogActions'
 import type { TagWithId } from '../../types'
+import { useAuth } from '../../auth'
+import { AuditHistory } from '../../components/AuditHistory'
 
 export const Route = createFileRoute('/_auth/tag/$tagId')({
     component: RouteComponent,
@@ -22,6 +24,7 @@ export const Route = createFileRoute('/_auth/tag/$tagId')({
 
 function RouteComponent() {
     const { tagId } = Route.useParams()
+    const { user } = useAuth()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const [submitSuccess, setSubmitSuccess] = useState(false)
@@ -38,7 +41,7 @@ function RouteComponent() {
         defaultValues: { name: tag?.name ?? '' },
         onSubmit: async ({ value }) => {
             try {
-                await updateTag(tagId, value.name)
+                await updateTag(tagId, value.name, user?.email)
                 await queryClient.invalidateQueries({ queryKey: ['tags'] })
                 await queryClient.invalidateQueries({ queryKey: ['tag', tagId] })
                 setSubmitSuccess(true)
@@ -67,7 +70,7 @@ function RouteComponent() {
     const handleDelete = async () => {
         setIsDeleting(true)
         try {
-            await deleteTag(tagId)
+            await deleteTag(tagId, user?.email)
             await queryClient.invalidateQueries({ queryKey: ['tags'] })
             navigate({ to: '/dashboard' })
         } catch (err: unknown) {
@@ -141,6 +144,8 @@ function RouteComponent() {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <AuditHistory entityType="tag" entityId={tagId} />
         </Box>
     )
 }

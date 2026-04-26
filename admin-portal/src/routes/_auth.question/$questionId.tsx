@@ -11,6 +11,8 @@ import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type'
 import type { FilePondFile } from 'filepond'
 import 'filepond/dist/filepond.min.css'
 import { FormActionFooter } from '../../components/FormActionFooter';
+import { useAuth } from '../../auth';
+import { AuditHistory } from '../../components/AuditHistory';
 
 registerPlugin(FilePondPluginFileValidateType)
 
@@ -71,6 +73,7 @@ function QuestionEditForm({
     questionId: string
     tagOptions: Tag[]
 }) {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [updateError, setUpdateError] = useState<string | null>(null);
@@ -133,7 +136,7 @@ function QuestionEditForm({
                     explanation: value.explanation,
                     tags: value.tags,
                     answerChoices: value.answerChoices,
-                }, replacementFile?.type);
+                }, replacementFile?.type, user?.email);
 
                 if (replacementFile) {
                     if (!updatedQuestion.upload_url) {
@@ -479,6 +482,7 @@ function QuestionEditForm({
                     />
                 </div>
             </form >
+            <AuditHistory entityType="question" entityId={questionId} />
         </div>
     )
 }

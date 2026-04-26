@@ -1,8 +1,9 @@
 import uuid
 from datetime import timedelta
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from app.audit import get_audit_context, record_audit_event
 from app.db.database import SessionDep
 from app.models import Question
 from app.storage import get_bucket, get_signing_credentials
@@ -12,7 +13,12 @@ router = APIRouter(prefix="/media", tags=["media"])
 
 
 @router.post("/upload-url")
-def generate_upload_url(question_id: uuid.UUID, content_type: str, session: SessionDep):
+def generate_upload_url(
+    question_id: uuid.UUID,
+    content_type: str,
+    session: SessionDep,
+    request: Request,
+):
     """Uploads a file to the bucket."""
     # Verify question exists
     question = session.get(Question, question_id)
@@ -31,8 +37,26 @@ def generate_upload_url(question_id: uuid.UUID, content_type: str, session: Sess
     )
 
     # Persist the content type so we know media exists
+    before_snapshot = {
+        "question_id": str(question.id),
+        "media_content_type": question.media_content_type,
+    }
     question.media_content_type = content_type
     session.add(question)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="media.upload_url.requested",
+        entity_type="question",
+        entity_id=question.id,
+        before=before_snapshot,
+        after={
+            "question_id": str(question.id),
+            "media_content_type": question.media_content_type,
+        },
+        metadata={"content_type": content_type, "gcs_path": filename},
+    )
     session.commit()
 
     return {"upload_url": upload_url, "gcs_path": filename}

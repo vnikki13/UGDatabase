@@ -29,6 +29,20 @@ export interface TagWithId {
   updated_at: string | null
 }
 
+export interface AuditEvent {
+  id: string
+  occurred_at: string
+  request_id: string | null
+  actor_email: string | null
+  actor_source: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  before_json: Record<string, unknown> | null
+  after_json: Record<string, unknown> | null
+  metadata_json: Record<string, unknown> | null
+}
+
 export interface AdminCreateExamRequest {
   member_uuids: string[]
   question_ids: string[]

@@ -12,6 +12,7 @@ import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type'
 import 'filepond/dist/filepond.min.css'
 import type { FilePondFile } from 'filepond'
 import { FormActionFooter } from '../../components/FormActionFooter'
+import { useAuth } from '../../auth'
 
 registerPlugin(FilePondPluginFileValidateType)
 
@@ -33,6 +34,7 @@ type QuestionFormValues = {
 }
 
 function RouteComponent() {
+    const { user } = useAuth()
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState<boolean>(false);
     const [files, setFiles] = useState<File[]>([]);
@@ -85,7 +87,7 @@ function RouteComponent() {
                     tags: value.tags,
                     answerChoices: value.answerChoices,
                 };
-                const createdQuestion = await createQuestion(payload, file?.type);
+                const createdQuestion = await createQuestion(payload, file?.type, user?.email);
                 createdQuestionIdRef.current = createdQuestion.id;
 
                 // Upload file directly to the signed URL returned with the question

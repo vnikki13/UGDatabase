@@ -1,14 +1,28 @@
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from sqlmodel import select, func
 
+from app.audit import get_audit_context, record_audit_event
 from app.db.database import SessionDep
 from app.models import Tag, TagBase, TagCreate, TagUpdate
 
 
 router = APIRouter(prefix="/tags", tags=["tags"])
+
+
+def _serialize_tag(tag: Tag | None):
+    if tag is None:
+        return None
+
+    return {
+        "id": str(tag.id),
+        "name": tag.name,
+        "created_at": tag.created_at.isoformat() if tag.created_at else None,
+        "updated_at": tag.updated_at.isoformat() if tag.updated_at else None,
+        "deleted_at": tag.deleted_at.isoformat() if tag.deleted_at else None,
+    }
 
 
 @router.get("/")
@@ -26,7 +40,7 @@ def read_tag_by_id(tag_id: uuid.UUID, session: SessionDep):
 
 
 @router.post("/", response_model=TagCreate)
-def create_tag(*, session: SessionDep, tag_in: TagCreate):
+def create_tag(*, session: SessionDep, request: Request, tag_in: TagCreate):
     tag_create = TagCreate.model_validate(tag_in)
 
     # Check if a non-deleted tag with the same name (case-insensitive) already exists
@@ -44,33 +58,66 @@ def create_tag(*, session: SessionDep, tag_in: TagCreate):
 
     tag = Tag.model_validate(tag_create)
     session.add(tag)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="tag.create",
+        entity_type="tag",
+        entity_id=tag.id,
+        after=_serialize_tag(tag),
+    )
     session.commit()
     session.refresh(tag)
     return tag
 
 
 @router.put("/{tag_id}", response_model=TagUpdate)
-def update_tag(*, session: SessionDep, tag_id: uuid.UUID, tag_in: TagUpdate):
+def update_tag(
+    *, session: SessionDep, request: Request, tag_id: uuid.UUID, tag_in: TagUpdate
+):
     tag = session.get(Tag, tag_id)
     if not tag or tag.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Tag not found")
 
+    before_snapshot = _serialize_tag(tag)
     update_data = tag_in.model_dump(exclude_unset=True)
     tag.sqlmodel_update(update_data)
     tag.updated_at = datetime.now(timezone.utc)
     session.add(tag)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="tag.update",
+        entity_type="tag",
+        entity_id=tag.id,
+        before=before_snapshot,
+        after=_serialize_tag(tag),
+    )
     session.commit()
     session.refresh(tag)
     return tag
 
 
 @router.delete("/{tag_id}")
-def delete_tag(session: SessionDep, tag_id: uuid.UUID):
+def delete_tag(session: SessionDep, request: Request, tag_id: uuid.UUID):
     tag = session.get(Tag, tag_id)
     if not tag or tag.deleted_at is not None:
         raise HTTPException(status_code=404, detail="Tag not found")
 
+    before_snapshot = _serialize_tag(tag)
     tag.deleted_at = datetime.now(timezone.utc)
     session.add(tag)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="tag.delete",
+        entity_type="tag",
+        entity_id=tag.id,
+        before=before_snapshot,
+        after=_serialize_tag(tag),
+    )
     session.commit()
     return {"message": "Tag deleted successfully"}

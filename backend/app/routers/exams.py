@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 import uuid
 import random
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from sqlmodel import select, func
 
+from app.audit import get_audit_context, record_audit_event
 from app.db.database import SessionDep
 from app.models import (
     AdminExamCreate,
@@ -31,6 +32,23 @@ from collections import defaultdict
 
 
 router = APIRouter(prefix="/exams", tags=["exams"])
+
+
+def _serialize_exam(exam: Exam | None):
+    if exam is None:
+        return None
+
+    return {
+        "id": str(exam.id),
+        "member_id": exam.member_id,
+        "started_at": exam.started_at.isoformat() if exam.started_at else None,
+        "updated_at": exam.updated_at.isoformat() if exam.updated_at else None,
+        "completed_at": exam.completed_at.isoformat() if exam.completed_at else None,
+        "score": exam.score,
+        "question_count": exam.question_count,
+        "filters": exam.filters,
+        "deleted_at": exam.deleted_at.isoformat() if exam.deleted_at else None,
+    }
 
 
 @router.get(
@@ -360,6 +378,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         session.add_all(exam_tags)
 
     # Create exam_question entries with version tracking
+    selected_question_ids = []
     for position, question in enumerate(selected_questions, start=1):
         exam_question = Exam_Question(
             exam_id=exam.id,
@@ -368,6 +387,8 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
             position=position,
         )
         session.add(exam_question)
+        selected_question_ids.append(str(question.id))
+
     session.commit()
     session.refresh(exam)
 
@@ -416,7 +437,9 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
 
 
 @router.post("/admin", response_model=List[ExamCreateResponse])
-def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
+def create_admin_exams(
+    *, session: SessionDep, request: Request, exam_in: AdminExamCreate
+):
     """
     Create an exam for each member in 'members' with the provided 'questionIds'.
     Adds 'admin' filter and leaves started_at, completed_at, score, deleted_at empty.
@@ -430,6 +453,7 @@ def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
         )
 
     responses = []
+    context = get_audit_context(request)
     for member in members:
         exam = Exam(
             member_id=member,
@@ -473,30 +497,43 @@ def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
                     )
                 )
 
+        record_audit_event(
+            session,
+            context=context,
+            action="exam.admin_create",
+            entity_type="exam",
+            entity_id=exam.id,
+            after=_serialize_exam(exam),
+            metadata={
+                "member_uuid": member,
+                "question_ids": [str(qid) for qid in question_ids],
+            },
+        )
+
         session.commit()
         session.refresh(exam)
 
-    # Fetch tags for response
-    exam_tag_links = session.exec(
-        select(Exam_Tag).where(Exam_Tag.exam_id == exam.id)
-    ).all()
+        # Fetch tags for response
+        exam_tag_links = session.exec(
+            select(Exam_Tag).where(Exam_Tag.exam_id == exam.id)
+        ).all()
 
-    tags = []
-    if exam_tag_links:
-        tag_ids = [et.tag_id for et in exam_tag_links]
-        tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
+        tags = []
+        if exam_tag_links:
+            tag_ids = [et.tag_id for et in exam_tag_links]
+            tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all()
 
-    responses.append(
-        ExamCreateResponse(
-            exam_id=exam.id,
-            member_id=exam.member_id,
-            started_at=exam.started_at,
-            question_count=exam.question_count,
-            tags=tags or None,
-            filters=exam.filters,
-            questions=questions_data,
+        responses.append(
+            ExamCreateResponse(
+                exam_id=exam.id,
+                member_id=exam.member_id,
+                started_at=exam.started_at,
+                question_count=exam.question_count,
+                tags=tags or None,
+                filters=exam.filters,
+                questions=questions_data,
+            )
         )
-    )
     return responses
 
 
@@ -583,22 +620,34 @@ def update_exam(*, session: SessionDep, exam_id: uuid.UUID, exam_in: ExamUpdate)
 
 
 @router.delete("/{exam_id}", response_model=MessageResponse)
-def soft_delete_exam(exam_id: uuid.UUID, session: SessionDep):
+def soft_delete_exam(exam_id: uuid.UUID, session: SessionDep, request: Request):
     exam = session.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
     if exam.deleted_at:
         raise HTTPException(status_code=400, detail="Exam already deleted")
 
+    before_snapshot = _serialize_exam(exam)
     exam.deleted_at = datetime.now(UTC)
     session.add(exam)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="exam.delete",
+        entity_type="exam",
+        entity_id=exam.id,
+        before=before_snapshot,
+        after=_serialize_exam(exam),
+        metadata={"delete_type": "soft"},
+    )
     session.commit()
 
     return MessageResponse(message="Exam soft deleted successfully")
 
 
 @router.delete("/user/{member_id}/all", response_model=MessageResponse)
-def soft_delete_all_user_exams(member_id: str, session: SessionDep):
+def soft_delete_all_user_exams(member_id: str, session: SessionDep, request: Request):
     exams = session.exec(
         select(Exam).where(Exam.member_id == member_id).where(Exam.deleted_at.is_(None))
     ).all()
@@ -606,35 +655,71 @@ def soft_delete_all_user_exams(member_id: str, session: SessionDep):
     if not exams:
         return MessageResponse(message="No exams found for this user")
 
+    context = get_audit_context(request)
     for exam in exams:
+        before_snapshot = _serialize_exam(exam)
         exam.deleted_at = datetime.now(UTC)
         session.add(exam)
+        record_audit_event(
+            session,
+            context=context,
+            action="exam.delete",
+            entity_type="exam",
+            entity_id=exam.id,
+            before=before_snapshot,
+            after=_serialize_exam(exam),
+            metadata={"delete_type": "soft", "bulk": True, "member_id": member_id},
+        )
 
     session.commit()
     return MessageResponse(message=f"Soft deleted {len(exams)} exams successfully")
 
 
 @router.delete("/{exam_id}/hard", response_model=MessageResponse)
-def hard_delete_exam(exam_id: uuid.UUID, session: SessionDep):
+def hard_delete_exam(exam_id: uuid.UUID, session: SessionDep, request: Request):
     exam = session.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
+    before_snapshot = _serialize_exam(exam)
     session.delete(exam)
+    context = get_audit_context(request)
+    record_audit_event(
+        session,
+        context=context,
+        action="exam.delete",
+        entity_type="exam",
+        entity_id=exam_id,
+        before=before_snapshot,
+        after=None,
+        metadata={"delete_type": "hard"},
+    )
     session.commit()
 
     return MessageResponse(message="Exam permanently deleted")
 
 
 @router.delete("/user/{member_id}/all/hard", response_model=MessageResponse)
-def hard_delete_all_user_exams(member_id: str, session: SessionDep):
+def hard_delete_all_user_exams(member_id: str, session: SessionDep, request: Request):
     exams = session.exec(select(Exam).where(Exam.member_id == member_id)).all()
 
     if not exams:
         return MessageResponse(message="No exams found for this user")
 
+    context = get_audit_context(request)
     for exam in exams:
+        before_snapshot = _serialize_exam(exam)
         session.delete(exam)
+        record_audit_event(
+            session,
+            context=context,
+            action="exam.delete",
+            entity_type="exam",
+            entity_id=exam.id,
+            before=before_snapshot,
+            after=None,
+            metadata={"delete_type": "hard", "bulk": True, "member_id": member_id},
+        )
 
     session.commit()
     return MessageResponse(message=f"Permanently deleted {len(exams)} exams")

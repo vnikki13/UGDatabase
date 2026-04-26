@@ -34,6 +34,10 @@ from collections import defaultdict
 router = APIRouter(prefix="/exams", tags=["exams"])
 
 
+def _question_lineage_id(question: Question) -> uuid.UUID:
+    return question.base_question_id or question.id
+
+
 def _serialize_exam(exam: Exam | None):
     if exam is None:
         return None
@@ -333,6 +337,15 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
 
     questions = session.exec(statement).all()
 
+    # Keep only the latest active version per question lineage.
+    latest_by_lineage: dict[uuid.UUID, Question] = {}
+    for question in questions:
+        lineage_id = _question_lineage_id(question)
+        current = latest_by_lineage.get(lineage_id)
+        if current is None or question.version > current.version:
+            latest_by_lineage[lineage_id] = question
+    questions = list(latest_by_lineage.values())
+
     # Apply questions filter - if no filters specified, apply all filters
     filters_to_apply = (
         exam_in.filters if exam_in.filters else ["missed", "correct", "unanswered"]
@@ -349,13 +362,13 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
             )
 
         # Start with empty set and union all filter results
-        filtered_question_ids = set()
-        available_question_ids = set(q.id for q in questions)
+        filtered_lineage_ids = set()
+        available_lineage_ids = {_question_lineage_id(q) for q in questions}
 
         # Filter to only "missed" questions (incorrectly answered in completed exams)
         if "missed" in filters_to_apply:
-            missed_questions = session.exec(
-                select(Question.id)
+            missed_lineages = session.exec(
+                select(func.coalesce(Question.base_question_id, Question.id))
                 .join(Exam_Question, Exam_Question.question_id == Question.id)
                 .join(Exam, Exam.id == Exam_Question.exam_id)
                 .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
@@ -365,12 +378,12 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
                 .where(Answer_Choice.is_correct.is_(False))
                 .where(Exam.deleted_at.is_(None))
             ).all()
-            filtered_question_ids |= set(missed_questions)
+            filtered_lineage_ids |= set(missed_lineages)
 
         # Filter to only "correct" questions (correctly answered in completed exams)
         if "correct" in filters_to_apply:
-            correct_questions = session.exec(
-                select(Question.id)
+            correct_lineages = session.exec(
+                select(func.coalesce(Question.base_question_id, Question.id))
                 .join(Exam_Question, Exam_Question.question_id == Question.id)
                 .join(Exam, Exam.id == Exam_Question.exam_id)
                 .join(Exam_Answer, Exam_Answer.exam_question_id == Exam_Question.id)
@@ -380,24 +393,26 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
                 .where(Answer_Choice.is_correct.is_(True))
                 .where(Exam.deleted_at.is_(None))
             ).all()
-            filtered_question_ids |= set(correct_questions)
+            filtered_lineage_ids |= set(correct_lineages)
 
         # Filter to only "unanswered" questions (never been in an exam)
         if "unanswered" in filters_to_apply:
-            used_questions = session.exec(
-                select(Question.id)
+            used_lineages = session.exec(
+                select(func.coalesce(Question.base_question_id, Question.id))
                 .join(Exam_Question, Exam_Question.question_id == Question.id)
                 .join(Exam, Exam.id == Exam_Question.exam_id)
                 .where(Exam.member_id == exam_in.member_id)
                 .where(Exam.deleted_at.is_(None))
             ).all()
-            used_set = set(used_questions)
+            used_set = set(used_lineages)
             # Add questions that have never been in an exam
-            unanswered = available_question_ids - used_set
-            filtered_question_ids |= unanswered
+            unanswered = available_lineage_ids - used_set
+            filtered_lineage_ids |= unanswered
 
         # Apply the filter - only keep questions that match at least one filter
-        questions = [q for q in questions if q.id in filtered_question_ids]
+        questions = [
+            q for q in questions if _question_lineage_id(q) in filtered_lineage_ids
+        ]
 
     # Check if there are any questions available
     if not questions:

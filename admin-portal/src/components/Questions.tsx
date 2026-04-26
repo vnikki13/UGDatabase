@@ -108,6 +108,8 @@ export function Questions() {
         queryFn: async () => getQuestions(),
     })
 
+    const questionCount = questions?.count ?? 0
+
     // Transform data to flatten answer choices into rows
     const rowData = useMemo(() => {
         if (!questions?.data) return [];
@@ -142,7 +144,9 @@ export function Questions() {
     return (
         <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
-                <Typography variant="h4" component="h1">Questions</Typography>
+                <Typography variant="h4" component="h1">
+                    Questions ({questionCount})
+                </Typography>
                 <Button variant="contained" onClick={() => navigate({ to: '/question' })}>
                     Add Question
                 </Button>

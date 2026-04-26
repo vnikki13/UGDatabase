@@ -67,10 +67,9 @@ def _serialize_question_state(session, question_id: uuid.UUID):
 
 @router.get("/")
 def read_questions(session: SessionDep):
-    # Only return the latest version of each question (by base_question_id or id)
-    all_questions = session.exec(
-        select(Question).where(Question.deleted_at.is_(None))
-    ).all()
+    # Group by question family and then include only families whose latest version
+    # is not soft-deleted.
+    all_questions = session.exec(select(Question)).all()
 
     latest_questions = {}
     for q in all_questions:
@@ -81,7 +80,7 @@ def read_questions(session: SessionDep):
         ):
             latest_questions[base_id] = q
 
-    questions = list(latest_questions.values())
+    questions = [q for q in latest_questions.values() if q.deleted_at is None]
     count = len(questions)
 
     if not questions:

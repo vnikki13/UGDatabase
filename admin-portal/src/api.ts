@@ -162,6 +162,17 @@ export const updateQuestion = async (
   }
 }
 
+export const deleteQuestion = async (questionId: string, actorEmail?: string | null): Promise<void> => {
+  try {
+    await axios.delete(`${API_URL}/questions/${questionId}`, { headers: actorHeaders(actorEmail) })
+  } catch (err: unknown) {
+    if (err instanceof AxiosError) {
+      throw new Error(err?.response?.data?.detail || 'Failed to delete question')
+    }
+    throw new Error('Unable to delete question')
+  }
+}
+
 
 export const getSignedUploadUrl = async (
   questionId: string,

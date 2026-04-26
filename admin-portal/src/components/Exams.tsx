@@ -37,6 +37,8 @@ export function Exams() {
         queryFn: getAdminExams,
     });
 
+    const examCount = examList?.count ?? 0;
+
     const colDefs: ColDef<GridRow>[] = useMemo(() => {
         const columns: ColDef<GridRow>[] = [
             {
@@ -114,7 +116,7 @@ export function Exams() {
     return (
         <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
-                <Typography variant="h4" component="h1">Admin Exams</Typography>
+                <Typography variant="h4" component="h1">Admin Exams ({examCount})</Typography>
                 <Button variant="contained" onClick={() => navigate({ to: '/exam' })}>
                     Add Admin Exam
                 </Button>

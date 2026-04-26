@@ -78,3 +78,38 @@ def test_cannot_attach_deleted_tag_that_was_not_previously_linked(
     )
     assert update_resp.status_code == 400
     assert "Cannot attach deleted tags" in str(update_resp.json().get("detail", ""))
+
+
+def test_question_list_excludes_family_when_latest_version_is_deleted(
+    client: TestClient, session: Session
+):
+    tag_id = _create_tag(client, session, "ListFilter")
+
+    create_resp = client.post(
+        "/api/v1/questions/",
+        json=_question_payload([tag_id], prompt="Original prompt"),
+        headers=ACTOR_HEADERS,
+    )
+    assert create_resp.status_code == 200
+    original_id = create_resp.json()["id"]
+
+    update_resp = client.put(
+        f"/api/v1/questions/{original_id}",
+        json=_question_payload([tag_id], prompt="Updated prompt"),
+        headers=ACTOR_HEADERS,
+    )
+    assert update_resp.status_code == 200
+    latest_id = update_resp.json()["id"]
+
+    delete_latest_resp = client.delete(
+        f"/api/v1/questions/{latest_id}", headers=ACTOR_HEADERS
+    )
+    assert delete_latest_resp.status_code == 200
+
+    list_resp = client.get("/api/v1/questions/")
+    assert list_resp.status_code == 200
+    body = list_resp.json()
+
+    returned_ids = {question["id"] for question in body["data"]}
+    assert original_id not in returned_ids
+    assert latest_id not in returned_ids

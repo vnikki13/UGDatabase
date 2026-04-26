@@ -34,6 +34,8 @@ export function Tags() {
         [data],
     );
 
+    const tagCount = data?.length ?? 0;
+
     const colDefs: ColDef<GridRow>[] = useMemo(() => [
         {
             field: 'id',
@@ -83,7 +85,7 @@ export function Tags() {
     return (
         <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
-                <Typography variant="h4" component="h1">Tags</Typography>
+                <Typography variant="h4" component="h1">Tags ({tagCount})</Typography>
                 <Button variant="contained" onClick={() => navigate({ to: '/tag' })}>
                     Add Tag
                 </Button>

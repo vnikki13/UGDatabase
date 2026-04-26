@@ -1,10 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { getQuestion, getSignedDownloadUrl, getTags, updateQuestion } from '../../api';
+import { deleteQuestion, getQuestion, getSignedDownloadUrl, getTags, updateQuestion } from '../../api';
 import type { AnswerChoice, Question, QuestionTag, TagWithId } from '../../types';
 import { useEffect, useMemo, useState } from 'react';
 import { AxiosError } from 'axios';
-import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button, Box, CircularProgress, FormHelperText } from '@mui/material';
+import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button, Box, CircularProgress, FormHelperText, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
 import { useAppForm } from '../../hooks/questionForm';
 import { FilePond, registerPlugin } from 'react-filepond'
 import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type'
@@ -83,6 +83,8 @@ function QuestionEditForm({
     const [isUploading, setIsUploading] = useState(false);
     const [deleteMedia, setDeleteMedia] = useState(false);
     const [isImageLoading, setIsImageLoading] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const { data: downloadUrlData, isLoading: isDownloadUrlLoading } = useQuery({
         queryKey: ['media-download-url', questionId],
@@ -139,6 +141,25 @@ function QuestionEditForm({
             }
         } catch (err) {
             throw new Error(err instanceof Error ? err.message : 'Failed to upload file to storage')
+        }
+    }
+
+    const handleDelete = async () => {
+        setIsDeleting(true)
+        try {
+            await deleteQuestion(questionId, user?.email)
+            await queryClient.invalidateQueries({ queryKey: ['questions'] })
+            await queryClient.invalidateQueries({ queryKey: ['question', questionId] })
+            await queryClient.invalidateQueries({ queryKey: ['media-download-url', questionId] })
+            await navigate({ to: '/dashboard' })
+        } catch (err: unknown) {
+            setDeleteDialogOpen(false)
+            setIsDeleting(false)
+            if (err instanceof Error) {
+                setUpdateError(err.message)
+            } else {
+                setUpdateError('Failed to delete question')
+            }
         }
     }
 
@@ -212,7 +233,16 @@ function QuestionEditForm({
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h1>Update a question</h1>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <h1 style={{ margin: 0 }}>Update a question</h1>
+                <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => setDeleteDialogOpen(true)}
+                >
+                    Delete Question
+                </Button>
+            </Box>
             <form
                 style={{ display: 'flex', flexDirection: 'column' }}
                 onSubmit={(e) => {
@@ -536,6 +566,22 @@ function QuestionEditForm({
                     />
                 </div>
             </form >
+            <Dialog open={deleteDialogOpen} onClose={() => !isDeleting && setDeleteDialogOpen(false)}>
+                <DialogTitle>Delete Question</DialogTitle>
+                <DialogContent>
+                    <DialogContentText>
+                        Are you sure you want to delete this question? It will no longer appear in the question list.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleDelete} color="error" variant="contained" loading={isDeleting}>
+                        Delete
+                    </Button>
+                </DialogActions>
+            </Dialog>
             <AuditHistory entityType="question" entityId={questionId} />
         </div>
     )

@@ -329,22 +329,26 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
             select(Question)
             .join(Question_Tag)
             .where(Question_Tag.tag_id.in_(tag_ids))
-            .where(Question.deleted_at.is_(None))
             .distinct()
         )
     else:
-        statement = select(Question).where(Question.deleted_at.is_(None))
+        statement = select(Question)
 
     questions = session.exec(statement).all()
 
-    # Keep only the latest active version per question lineage.
+    # Keep only the latest version per question lineage, then include only
+    # lineages whose latest version is not soft-deleted.
     latest_by_lineage: dict[uuid.UUID, Question] = {}
     for question in questions:
         lineage_id = _question_lineage_id(question)
         current = latest_by_lineage.get(lineage_id)
         if current is None or question.version > current.version:
             latest_by_lineage[lineage_id] = question
-    questions = list(latest_by_lineage.values())
+    questions = [
+        question
+        for question in latest_by_lineage.values()
+        if question.deleted_at is None
+    ]
 
     # Apply questions filter - if no filters specified, apply all filters
     filters_to_apply = (
@@ -515,6 +519,49 @@ def create_admin_exams(
             status_code=400,
             detail="Both 'member_uuids' and 'question_ids' are required.",
         )
+
+    parsed_question_ids: list[uuid.UUID] = []
+    for question_id in question_ids:
+        try:
+            parsed_question_ids.append(uuid.UUID(question_id))
+        except ValueError as err:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid question UUID: {question_id}",
+            ) from err
+
+    unique_question_ids = list(dict.fromkeys(parsed_question_ids))
+    existing_questions = session.exec(
+        select(Question).where(Question.id.in_(unique_question_ids))
+    ).all()
+    questions_by_id = {question.id: question for question in existing_questions}
+
+    missing_question_ids = [
+        str(question_id)
+        for question_id in unique_question_ids
+        if question_id not in questions_by_id
+    ]
+    if missing_question_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Questions do not exist: {', '.join(missing_question_ids)}",
+        )
+
+    deleted_question_ids = [
+        str(question.id)
+        for question in existing_questions
+        if question.deleted_at is not None
+    ]
+    if deleted_question_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Deleted questions cannot be used in exams: "
+                f"{', '.join(deleted_question_ids)}"
+            ),
+        )
+
+    question_ids = parsed_question_ids
 
     responses = []
     context = get_audit_context(request)

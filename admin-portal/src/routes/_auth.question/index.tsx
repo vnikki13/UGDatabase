@@ -13,6 +13,7 @@ import 'filepond/dist/filepond.min.css'
 import type { FilePondFile } from 'filepond'
 import { FormActionFooter } from '../../components/FormActionFooter'
 import { useAuth } from '../../auth'
+import { ACCEPTED_MEDIA_FILE_TYPES, getFileContentType, isVideoFile } from '../../utils/mediaUtils'
 
 registerPlugin(FilePondPluginFileValidateType)
 
@@ -47,12 +48,13 @@ function RouteComponent() {
     });
 
     const uploadFileToGCS = async (file: File, uploadUrl: string): Promise<void> => {
+        const contentType = getFileContentType(file)
         try {
             const response = await fetch(uploadUrl, {
                 method: 'PUT',
                 body: file,
                 headers: {
-                    'Content-Type': file.type,
+                    ...(contentType ? { 'Content-Type': contentType } : {}),
                 },
             });
 
@@ -80,6 +82,7 @@ function RouteComponent() {
 
             try {
                 const file = files.length > 0 ? files[0] : null;
+                const mediaContentType = file ? getFileContentType(file) : undefined
                 const payload = {
                     prompt: value.prompt,
                     media_content_type: null,
@@ -87,7 +90,7 @@ function RouteComponent() {
                     tags: value.tags,
                     answerChoices: value.answerChoices,
                 };
-                const createdQuestion = await createQuestion(payload, file?.type, user?.email);
+                const createdQuestion = await createQuestion(payload, mediaContentType, user?.email);
                 createdQuestionIdRef.current = createdQuestion.id;
 
                 // Upload file directly to the signed URL returned with the question
@@ -160,7 +163,7 @@ function RouteComponent() {
                                         alt="Media preview"
                                         style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
                                     />
-                                ) : files[0].type === 'video/mp4' ? (
+                                ) : isVideoFile(files[0]) ? (
                                     <video
                                         src={URL.createObjectURL(files[0])}
                                         controls
@@ -184,7 +187,7 @@ function RouteComponent() {
                                 setFiles(fileItems.map((fileItem) => fileItem.file as File));
                             }}
                             maxFiles={1}
-                            acceptedFileTypes={['image/png', 'image/jpeg', 'image/jpg', 'video/mp4', 'application/pdf']}
+                            acceptedFileTypes={ACCEPTED_MEDIA_FILE_TYPES}
                             labelIdle='Drag and drop your media file or <span class="filepond--label-action">browse</span>'
                             credits={false}
                         />

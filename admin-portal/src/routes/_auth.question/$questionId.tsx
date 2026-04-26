@@ -13,6 +13,7 @@ import 'filepond/dist/filepond.min.css'
 import { FormActionFooter } from '../../components/FormActionFooter';
 import { useAuth } from '../../auth';
 import { AuditHistory } from '../../components/AuditHistory';
+import { ACCEPTED_MEDIA_FILE_TYPES, getFileContentType, isVideoContentType, isVideoFile } from '../../utils/mediaUtils';
 
 registerPlugin(FilePondPluginFileValidateType)
 
@@ -97,12 +98,13 @@ function QuestionEditForm({
     }, [downloadUrlData?.download_url, downloadUrlData?.content_type]);
 
     const uploadFileToGCS = async (file: File, uploadUrl: string): Promise<void> => {
+        const contentType = getFileContentType(file)
         try {
             const response = await fetch(uploadUrl, {
                 method: 'PUT',
                 body: file,
                 headers: {
-                    'Content-Type': file.type,
+                    ...(contentType ? { 'Content-Type': contentType } : {}),
                 },
             });
 
@@ -124,10 +126,13 @@ function QuestionEditForm({
             try {
                 const hasReplacementFile = files.length > 0
                 const replacementFile = hasReplacementFile ? files[0] : null
+                const replacementMediaType = replacementFile
+                    ? getFileContentType(replacementFile) || null
+                    : null
                 const mediaContentType = deleteMedia
                     ? null
                     : hasReplacementFile
-                        ? replacementFile?.type || null
+                        ? replacementMediaType
                         : (value.mediaContentType || null)
 
                 const updatedQuestion = await updateQuestion(questionId, {
@@ -136,7 +141,7 @@ function QuestionEditForm({
                     explanation: value.explanation,
                     tags: value.tags,
                     answerChoices: value.answerChoices,
-                }, replacementFile?.type, user?.email);
+                }, replacementMediaType || undefined, user?.email);
 
                 if (replacementFile) {
                     if (!updatedQuestion.upload_url) {
@@ -232,7 +237,7 @@ function QuestionEditForm({
                                         alt="New media preview"
                                         style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
                                     />
-                                ) : files[0].type === 'video/mp4' ? (
+                                ) : isVideoFile(files[0]) ? (
                                     <video
                                         src={URL.createObjectURL(files[0])}
                                         controls
@@ -315,7 +320,7 @@ function QuestionEditForm({
                                                     style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 4 }}
                                                 />
                                             </Box>
-                                        ) : !isDownloadUrlLoading && downloadUrlData?.content_type === 'video/mp4' ? (
+                                        ) : !isDownloadUrlLoading && isVideoContentType(downloadUrlData?.content_type) ? (
                                             <video
                                                 src={downloadUrlData?.download_url}
                                                 controls
@@ -342,7 +347,7 @@ function QuestionEditForm({
                             }}
                             allowMultiple={false}
                             maxFiles={1}
-                            acceptedFileTypes={['image/png', 'image/jpeg', 'image/jpg', 'video/mp4', 'application/pdf']}
+                            acceptedFileTypes={ACCEPTED_MEDIA_FILE_TYPES}
                             labelIdle='Drag and drop a replacement media file or <span class="filepond--label-action">browse</span>'
                             credits={false}
                         />

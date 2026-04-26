@@ -1,4 +1,4 @@
-import type { Questions, Question, Tag, TagWithId, Member, AdminCreateExamRequest, Exam, AuditEvent } from './types'
+import type { Questions, Question, Tag, TagWithId, Member, AdminCreateExamRequest, Exam, AuditEvent, ExamListResponse } from './types'
 import axios, { AxiosError } from 'axios'
 
 export interface CreateQuestionRequest {
@@ -215,6 +215,10 @@ export const createAdminExam = async (data: AdminCreateExamRequest, actorEmail?:
       throw new Error('Unable to create admin exam')
     }
   }
+}
+
+export const getAdminExams = async (): Promise<ExamListResponse> => {
+  return (await axios.get(`${API_URL}/exams/admin`)).data
 }
 
 export const getAuditHistory = async (

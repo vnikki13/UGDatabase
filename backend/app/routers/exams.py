@@ -41,6 +41,7 @@ def _serialize_exam(exam: Exam | None):
     return {
         "id": str(exam.id),
         "member_id": exam.member_id,
+        "created_at": exam.created_at.isoformat() if exam.created_at else None,
         "started_at": exam.started_at.isoformat() if exam.started_at else None,
         "updated_at": exam.updated_at.isoformat() if exam.updated_at else None,
         "completed_at": exam.completed_at.isoformat() if exam.completed_at else None,
@@ -164,6 +165,51 @@ def read_exams_by_user(member_id: str, session: SessionDep):
         ExamBasicInfo(
             id=exam.id,
             member_id=exam.member_id,
+            created_at=exam.created_at,
+            started_at=exam.started_at,
+            updated_at=exam.updated_at,
+            completed_at=exam.completed_at,
+            score=exam.score,
+            question_count=exam.question_count,
+            tags=tags_by_exam.get(exam.id) or None,
+            filters=exam.filters,
+        )
+        for exam in exams
+    ]
+
+    return ExamListResponse(exams=exam_list, count=len(exam_list))
+
+
+@router.get("/admin", response_model=ExamListResponse)
+def read_admin_exams(session: SessionDep):
+    exams = session.exec(
+        select(Exam)
+        .where(Exam.deleted_at.is_(None))
+        .where(Exam.filters.is_not(None))
+        .where(Exam.filters.any("admin"))
+    ).all()
+
+    exam_ids = [exam.id for exam in exams]
+    exam_tags = (
+        session.exec(select(Exam_Tag).where(Exam_Tag.exam_id.in_(exam_ids))).all()
+        if exam_ids
+        else []
+    )
+
+    tag_ids = list(set(et.tag_id for et in exam_tags))
+    tags = session.exec(select(Tag).where(Tag.id.in_(tag_ids))).all() if tag_ids else []
+    tags_by_id = {tag.id: tag for tag in tags}
+
+    tags_by_exam = defaultdict(list)
+    for et in exam_tags:
+        if et.tag_id in tags_by_id:
+            tags_by_exam[et.exam_id].append(tags_by_id[et.tag_id])
+
+    exam_list = [
+        ExamBasicInfo(
+            id=exam.id,
+            member_id=exam.member_id,
+            created_at=exam.created_at,
             started_at=exam.started_at,
             updated_at=exam.updated_at,
             completed_at=exam.completed_at,
@@ -258,6 +304,7 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
     return ExamResponse(
         exam_id=exam.id,
         member_id=exam.member_id,
+        created_at=exam.created_at,
         started_at=exam.started_at,
         updated_at=exam.updated_at,
         completed_at=exam.completed_at,
@@ -365,6 +412,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
     # Create exam
     exam = Exam(
         member_id=exam_in.member_id,
+        created_at=datetime.now(UTC),
         started_at=datetime.now(UTC),
         question_count=len(questions),
         filters=exam_in.filters,
@@ -428,6 +476,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
     return ExamCreateResponse(
         exam_id=exam.id,
         member_id=exam.member_id,
+        created_at=exam.created_at,
         started_at=exam.started_at,
         question_count=exam.question_count,
         tags=tags or None,
@@ -457,6 +506,7 @@ def create_admin_exams(
     for member in members:
         exam = Exam(
             member_id=member,
+            created_at=datetime.now(UTC),
             started_at=None,
             updated_at=None,
             completed_at=None,
@@ -527,6 +577,7 @@ def create_admin_exams(
             ExamCreateResponse(
                 exam_id=exam.id,
                 member_id=exam.member_id,
+                created_at=exam.created_at,
                 started_at=exam.started_at,
                 question_count=exam.question_count,
                 tags=tags or None,

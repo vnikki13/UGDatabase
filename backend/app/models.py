@@ -118,6 +118,7 @@ class QuestionCreateResponse(QuestionRead):
 # Exams
 class Exam(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
     updated_at: datetime | None
     completed_at: datetime | None = None
@@ -214,6 +215,7 @@ class ExamQuestionResponse(SQLModel):
 class ExamResponse(SQLModel):
     exam_id: uuid.UUID
     member_id: str
+    created_at: datetime
     started_at: datetime | None = None
     updated_at: datetime | None = None
     completed_at: datetime | None = None
@@ -227,6 +229,7 @@ class ExamResponse(SQLModel):
 class ExamCreateResponse(SQLModel):
     exam_id: uuid.UUID
     member_id: str
+    created_at: datetime
     started_at: datetime | None = None
     question_count: int
     tags: list[Tag] | None = None
@@ -237,6 +240,7 @@ class ExamCreateResponse(SQLModel):
 class ExamBasicInfo(SQLModel):
     id: uuid.UUID
     member_id: str
+    created_at: datetime
     started_at: datetime | None = None
     updated_at: datetime | None
     completed_at: datetime | None

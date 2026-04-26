@@ -58,6 +58,23 @@ export interface Exam {
   questions: Question[]
 }
 
+export interface ExamSummary {
+  id: string
+  member_id: string
+  started_at: string | null
+  updated_at: string | null
+  completed_at: string | null
+  score: number | null
+  question_count: number
+  tags: Tag[] | null
+  filters: string[] | null
+}
+
+export interface ExamListResponse {
+  exams: ExamSummary[]
+  count: number
+}
+
 export interface Member {
   id: string;
   uuid: string;

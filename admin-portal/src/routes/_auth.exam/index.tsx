@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useAppForm } from '../../hooks/questionForm';
-import { Autocomplete, TextField } from '@mui/material';
+import { Autocomplete, Checkbox, FormControlLabel, TextField } from '@mui/material';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { getQuestions, searchMembers, createAdminExam } from '../../api';
 import type { Member, Question, Tag } from '../../types';
@@ -25,6 +25,7 @@ export const Route = createFileRoute('/_auth/exam/')({
 type ExamFormValues = {
     questionIds: string[]
     members: Member[]
+    tutor: boolean
 }
 
 function RouteComponent() {
@@ -79,6 +80,7 @@ function RouteComponent() {
         defaultValues: {
             questionIds: [],
             members: [],
+            tutor: false,
         } as ExamFormValues,
         onSubmit: async ({ value }) => {
             const member_uuids = value.members.map((m) => m.uuid)
@@ -86,6 +88,7 @@ function RouteComponent() {
                 await createAdminExam({
                     member_uuids,
                     question_ids: value.questionIds,
+                    tutor: value.tutor,
                 }, user?.email);
                 setSuccessMsg('Exam created successfully!');
                 setErrorMsg(null);
@@ -202,6 +205,20 @@ function RouteComponent() {
                             )}
                         />)
                     }} />
+                <form.Field
+                    name='tutor'
+                    children={({ state, handleChange }) => (
+                        <FormControlLabel
+                            control={(
+                                <Checkbox
+                                    checked={state.value}
+                                    onChange={(_, checked) => handleChange(checked)}
+                                />
+                            )}
+                            label='Show correct answer and explanation after each answer submission?'
+                        />
+                    )}
+                />
                 <form.Subscribe
                     selector={(state) => [state.canSubmit, state.isSubmitting]}
                     children={([canSubmit, isSubmitting]) => (

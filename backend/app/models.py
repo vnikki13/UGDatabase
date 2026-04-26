@@ -135,6 +135,7 @@ class Exam(SQLModel, table=True):
     score: int | None = None
     member_id: str
     question_count: int
+    tutor: bool = Field(default=False)
     filters: List[str] | None = Field(default=None, sa_column=Column(ARRAY(String)))
     deleted_at: datetime | None = Field(default=None)
 
@@ -142,6 +143,7 @@ class Exam(SQLModel, table=True):
 class ExamCreate(SQLModel):
     member_id: str
     question_count: int
+    tutor: bool = False
     tags: list[Tag] | None = None
     filters: list[str] | None = None
 
@@ -149,6 +151,7 @@ class ExamCreate(SQLModel):
 class AdminExamCreate(SQLModel):
     member_uuids: list[str]
     question_ids: list[str]
+    tutor: bool = False
 
 
 class ExamAnswerInput(SQLModel):
@@ -231,6 +234,7 @@ class ExamResponse(SQLModel):
     completed_at: datetime | None = None
     score: int | None = None
     question_count: int
+    tutor: bool = False
     tags: list[Tag] | None = None
     filters: list[str] | None = None
     questions: list[ExamQuestionResponse]
@@ -242,6 +246,7 @@ class ExamCreateResponse(SQLModel):
     created_at: datetime
     started_at: datetime | None = None
     question_count: int
+    tutor: bool = False
     tags: list[Tag] | None = None
     filters: list[str] | None = None
     questions: list[ExamQuestionResponse]
@@ -256,6 +261,7 @@ class ExamBasicInfo(SQLModel):
     completed_at: datetime | None
     score: int | None
     question_count: int
+    tutor: bool = False
     tags: list[Tag] | None = None
     filters: list[str] | None = None
 

@@ -53,6 +53,7 @@ export interface AuditEvent {
 export interface AdminCreateExamRequest {
   member_uuids: string[]
   question_ids: string[]
+  tutor: boolean
 }
 
 export interface Exam {
@@ -60,6 +61,7 @@ export interface Exam {
   member_id: string
   started_at: string | null
   question_count: number
+  tutor: boolean
   tags: Tag[] | null
   filters: string[]
   questions: Question[]
@@ -73,6 +75,7 @@ export interface ExamSummary {
   completed_at: string | null
   score: number | null
   question_count: number
+  tutor: boolean
   tags: Tag[] | null
   filters: string[] | null
 }

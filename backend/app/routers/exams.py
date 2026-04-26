@@ -51,6 +51,7 @@ def _serialize_exam(exam: Exam | None):
         "completed_at": exam.completed_at.isoformat() if exam.completed_at else None,
         "score": exam.score,
         "question_count": exam.question_count,
+        "tutor": exam.tutor,
         "filters": exam.filters,
         "deleted_at": exam.deleted_at.isoformat() if exam.deleted_at else None,
     }
@@ -175,6 +176,7 @@ def read_exams_by_user(member_id: str, session: SessionDep):
             completed_at=exam.completed_at,
             score=exam.score,
             question_count=exam.question_count,
+            tutor=exam.tutor,
             tags=tags_by_exam.get(exam.id) or None,
             filters=exam.filters,
         )
@@ -219,6 +221,7 @@ def read_admin_exams(session: SessionDep):
             completed_at=exam.completed_at,
             score=exam.score,
             question_count=exam.question_count,
+            tutor=exam.tutor,
             tags=tags_by_exam.get(exam.id) or None,
             filters=exam.filters,
         )
@@ -314,6 +317,7 @@ def read_exam_by_id(exam_id: uuid.UUID, session: SessionDep):
         completed_at=exam.completed_at,
         score=exam.score,
         question_count=exam.question_count,
+        tutor=exam.tutor,
         tags=tags or None,
         filters=exam.filters,
         questions=questions_data,
@@ -434,6 +438,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         created_at=datetime.now(UTC),
         started_at=datetime.now(UTC),
         question_count=len(questions),
+        tutor=exam_in.tutor,
         filters=exam_in.filters,
     )
     session.add(exam)
@@ -498,6 +503,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
         created_at=exam.created_at,
         started_at=exam.started_at,
         question_count=exam.question_count,
+        tutor=exam.tutor,
         tags=tags or None,
         filters=exam.filters,
         questions=questions_data,
@@ -574,6 +580,7 @@ def create_admin_exams(
             completed_at=None,
             score=None,
             question_count=len(question_ids),
+            tutor=exam_in.tutor,
             filters=["admin"],
             deleted_at=None,
         )
@@ -642,6 +649,7 @@ def create_admin_exams(
                 created_at=exam.created_at,
                 started_at=exam.started_at,
                 question_count=exam.question_count,
+                tutor=exam.tutor,
                 tags=tags or None,
                 filters=exam.filters,
                 questions=questions_data,

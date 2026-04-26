@@ -1,7 +1,7 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 import { createQuestion, getTags } from '../../api'
-import { type Tag } from '../../types'
+import { type TagWithId } from '../../types'
 import { useState, useRef } from 'react'
 import { AxiosError } from 'axios'
 import { useAppForm } from '../../hooks/questionForm'
@@ -30,7 +30,7 @@ type QuestionFormValues = {
     prompt: string
     mediaContentType?: string
     explanation?: string
-    tags: Tag[]
+    tags: TagWithId[]
     answerChoices: AnswerChoiceFormValues[]
 }
 
@@ -87,7 +87,7 @@ function RouteComponent() {
                     prompt: value.prompt,
                     media_content_type: null,
                     explanation: value.explanation,
-                    tags: value.tags,
+                    tags: value.tags.map((tag) => ({ id: tag.id })),
                     answerChoices: value.answerChoices,
                 };
                 const createdQuestion = await createQuestion(payload, mediaContentType, user?.email);
@@ -200,7 +200,8 @@ function RouteComponent() {
                             onSubmit: ({ value }) => value.length === 0 ? 'Select at least one tag' : undefined,
                         }}
                         children={({ state, handleChange }) => {
-                            const selectedTagNames = (state.value || []).map((t: Tag) => t.name);
+                            const selectedTagIds = (state.value || []).map((t: TagWithId) => t.id);
+                            const tagsById = new Map(tagOptions.map((tag) => [tag.id, tag]));
                             const tagError = state.meta.errors.length > 0
                                 ? String(state.meta.errors[0])
                                 : undefined;
@@ -209,20 +210,28 @@ function RouteComponent() {
                                     <InputLabel id="demo-multiple-name-label" required>Tags</InputLabel>
                                     <Select
                                         multiple
-                                        value={selectedTagNames}
+                                        value={selectedTagIds}
                                         onChange={(e) => {
                                             const value = typeof e.target.value === 'string'
                                                 ? e.target.value.split(',')
                                                 : e.target.value;
-                                            handleChange(value.map((name) => ({ name })))
+                                            handleChange(
+                                                value
+                                                    .map((tagId) => tagsById.get(tagId))
+                                                    .filter((tag): tag is TagWithId => Boolean(tag))
+                                            )
                                         }}
                                         input={<OutlinedInput label="Tags" />}
-                                        renderValue={(selected) => (selected as string[]).join(', ')}
+                                        renderValue={(selected) =>
+                                            (selected as string[])
+                                                .map((tagId) => tagsById.get(tagId)?.name ?? tagId)
+                                                .join(', ')
+                                        }
                                         required
                                     >
-                                        {tagOptions.map((tag: Tag) => (
-                                            <MenuItem key={tag.name} value={tag.name}>
-                                                <Checkbox checked={selectedTagNames.indexOf(tag.name) > -1} />
+                                        {tagOptions.map((tag: TagWithId) => (
+                                            <MenuItem key={tag.id} value={tag.id}>
+                                                <Checkbox checked={selectedTagIds.indexOf(tag.id) > -1} />
                                                 <ListItemText primary={tag.name} />
                                             </MenuItem>
                                         ))}

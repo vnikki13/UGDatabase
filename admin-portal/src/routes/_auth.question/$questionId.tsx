@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { getQuestion, getSignedDownloadUrl, getTags, updateQuestion } from '../../api';
-import type { AnswerChoice, Question, Tag } from '../../types';
-import { useEffect, useState } from 'react';
+import type { AnswerChoice, Question, QuestionTag, TagWithId } from '../../types';
+import { useEffect, useMemo, useState } from 'react';
 import { AxiosError } from 'axios';
 import { FormControl, InputLabel, Select, OutlinedInput, MenuItem, Checkbox, ListItemText, TextField, Button, Box, CircularProgress, FormHelperText } from '@mui/material';
 import { useAppForm } from '../../hooks/questionForm';
@@ -30,7 +30,7 @@ type QuestionFormValues = {
     prompt: string
     mediaContentType?: string
     explanation?: string
-    tags: Tag[]
+    tags: QuestionTag[]
     answerChoices: AnswerChoiceFormValues[]
 }
 
@@ -72,7 +72,7 @@ function QuestionEditForm({
 }: {
     question: Question
     questionId: string
-    tagOptions: Tag[]
+    tagOptions: TagWithId[]
 }) {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -96,6 +96,31 @@ function QuestionEditForm({
         );
         setIsImageLoading(shouldLoadImage);
     }, [downloadUrlData?.download_url, downloadUrlData?.content_type]);
+
+    const mergedTagOptions = useMemo(() => {
+        const tagMap = new Map<string, QuestionTag>()
+
+        for (const tag of tagOptions) {
+            tagMap.set(tag.id, {
+                id: tag.id,
+                name: tag.name,
+                deleted_at: tag.deleted_at,
+            })
+        }
+
+        for (const tag of question.tags || []) {
+            if (!tagMap.has(tag.id)) {
+                tagMap.set(tag.id, tag)
+            }
+        }
+
+        return Array.from(tagMap.values())
+    }, [question.tags, tagOptions])
+
+    const mergedTagMapById = useMemo(
+        () => new Map(mergedTagOptions.map((tag) => [tag.id, tag])),
+        [mergedTagOptions],
+    )
 
     const uploadFileToGCS = async (file: File, uploadUrl: string): Promise<void> => {
         const contentType = getFileContentType(file)
@@ -139,7 +164,7 @@ function QuestionEditForm({
                     prompt: value.prompt,
                     media_content_type: mediaContentType,
                     explanation: value.explanation,
-                    tags: value.tags,
+                    tags: value.tags.map((tag) => ({ id: tag.id })),
                     answerChoices: value.answerChoices,
                 }, replacementMediaType || undefined, user?.email);
 
@@ -360,7 +385,7 @@ function QuestionEditForm({
                             onSubmit: ({ value }) => value.length === 0 ? 'Select at least one tag' : undefined,
                         }}
                         children={({ state, handleChange }) => {
-                            const selectedTagNames = (state.value || []).map((t: Tag) => t.name);
+                            const selectedTagIds = (state.value || []).map((t: QuestionTag) => t.id);
                             const tagError = state.meta.errors.length > 0
                                 ? String(state.meta.errors[0])
                                 : undefined;
@@ -369,23 +394,47 @@ function QuestionEditForm({
                                     <InputLabel id="demo-multiple-name-label" required>Tags</InputLabel>
                                     <Select
                                         multiple
-                                        value={selectedTagNames}
+                                        value={selectedTagIds}
                                         onChange={(e) => {
                                             const value = typeof e.target.value === 'string'
                                                 ? e.target.value.split(',')
                                                 : e.target.value;
-                                            handleChange(value.map((name) => ({ name })))
+                                            handleChange(
+                                                value
+                                                    .map((tagId) => mergedTagMapById.get(tagId))
+                                                    .filter((tag): tag is QuestionTag => Boolean(tag))
+                                            )
                                         }}
                                         input={<OutlinedInput label="Tags" />}
-                                        renderValue={(selected) => (selected as string[]).join(', ')}
+                                        renderValue={(selected) =>
+                                            (selected as string[])
+                                                .map((tagId) => {
+                                                    const tag = mergedTagMapById.get(tagId)
+                                                    if (!tag) return tagId
+                                                    return tag.deleted_at ? `${tag.name} (deleted)` : tag.name
+                                                })
+                                                .join(', ')
+                                        }
                                         required
                                     >
-                                        {tagOptions.map((tag: Tag) => (
-                                            <MenuItem key={tag.name} value={tag.name}>
-                                                <Checkbox checked={selectedTagNames.indexOf(tag.name) > -1} />
-                                                <ListItemText primary={tag.name} />
-                                            </MenuItem>
-                                        ))}
+                                        {mergedTagOptions.map((tag: QuestionTag) => {
+                                            const isDeletedTag = Boolean(tag.deleted_at)
+                                            return (
+                                                <MenuItem
+                                                    key={tag.id}
+                                                    value={tag.id}
+                                                    sx={isDeletedTag ? { opacity: 0.75 } : undefined}
+                                                >
+                                                    <Checkbox checked={selectedTagIds.indexOf(tag.id) > -1} />
+                                                    <ListItemText
+                                                        primary={isDeletedTag ? `${tag.name} (deleted)` : tag.name}
+                                                        primaryTypographyProps={isDeletedTag
+                                                            ? { color: 'text.secondary', fontStyle: 'italic' }
+                                                            : undefined}
+                                                    />
+                                                </MenuItem>
+                                            )
+                                        })}
                                     </Select>
                                     {tagError && <FormHelperText>{tagError}</FormHelperText>}
                                 </FormControl>

@@ -1,11 +1,15 @@
-import type { Questions, Question, Tag, TagWithId, Member, AdminCreateExamRequest, Exam, AuditEvent, ExamListResponse } from './types'
+import type { Questions, Question, TagWithId, Member, AdminCreateExamRequest, Exam, AuditEvent, ExamListResponse } from './types'
 import axios, { AxiosError } from 'axios'
+
+type QuestionTagRef = {
+  id: string
+}
 
 export interface CreateQuestionRequest {
   prompt: string
   media_content_type?: string | null
   explanation?: string
-  tags: Tag[]
+  tags: QuestionTagRef[]
   answerChoices: { text: string; is_correct: boolean }[]
 }
 
@@ -13,7 +17,7 @@ export interface UpdateQuestionRequest {
   prompt: string
   media_content_type?: string | null
   explanation?: string
-  tags: Tag[]
+  tags: QuestionTagRef[]
   answerChoices: { text: string; is_correct: boolean }[]
 }
 

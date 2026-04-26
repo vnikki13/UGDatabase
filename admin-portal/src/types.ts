@@ -8,7 +8,7 @@ export interface Question {
   media_content_type: null | string
   explanation: string
   id: string
-  tags: Tag[]
+  tags: QuestionTag[]
   answerChoices: AnswerChoice[]
 }
 
@@ -22,11 +22,18 @@ export interface Tag {
   name: string
 }
 
+export interface QuestionTag {
+  id: string
+  name: string
+  deleted_at: string | null
+}
+
 export interface TagWithId {
   id: string
   name: string
   created_at: string
   updated_at: string | null
+  deleted_at: string | null
 }
 
 export interface AuditEvent {

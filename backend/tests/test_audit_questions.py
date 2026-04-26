@@ -17,14 +17,14 @@ def _create_tag(client: TestClient, session: Session, name: str) -> str:
     assert resp.status_code == 200
     tag = session.exec(select(Tag).where(Tag.name == name)).first()
     assert tag is not None
-    return tag.name
+    return str(tag.id)
 
 
-def _question_payload(tag_name: str) -> dict:
+def _question_payload(tag_id: str) -> dict:
     return {
         "prompt": "What is the normal ejection fraction?",
         "explanation": "Normal EF is 55-70%.",
-        "tags": [{"name": tag_name}],
+        "tags": [{"id": tag_id}],
         "answerChoices": [
             {"text": "55-70%", "is_correct": True},
             {"text": "30-40%", "is_correct": False},
@@ -33,11 +33,10 @@ def _question_payload(tag_name: str) -> dict:
 
 
 def test_create_question_records_audit_event(client: TestClient, session: Session):
-    tag_name = "Echo"
-    _create_tag(client, session, tag_name)
+    tag_id = _create_tag(client, session, "Echo")
 
     resp = client.post(
-        "/api/v1/questions/", json=_question_payload(tag_name), headers=ACTOR_HEADERS
+        "/api/v1/questions/", json=_question_payload(tag_id), headers=ACTOR_HEADERS
     )
     assert resp.status_code == 200
 
@@ -56,16 +55,15 @@ def test_create_question_records_audit_event(client: TestClient, session: Sessio
 def test_update_question_records_audit_event_with_versioning(
     client: TestClient, session: Session
 ):
-    tag_name = "Vascular"
-    _create_tag(client, session, tag_name)
+    tag_id = _create_tag(client, session, "Vascular")
 
     create_resp = client.post(
-        "/api/v1/questions/", json=_question_payload(tag_name), headers=ACTOR_HEADERS
+        "/api/v1/questions/", json=_question_payload(tag_id), headers=ACTOR_HEADERS
     )
     original_id = create_resp.json()["id"]
 
     updated_payload = {
-        **_question_payload(tag_name),
+        **_question_payload(tag_id),
         "prompt": "Updated: What is EF?",
     }
     update_resp = client.put(
@@ -88,11 +86,10 @@ def test_update_question_records_audit_event_with_versioning(
 
 
 def test_soft_delete_question_records_audit_event(client: TestClient, session: Session):
-    tag_name = "Renal"
-    _create_tag(client, session, tag_name)
+    tag_id = _create_tag(client, session, "Renal")
 
     create_resp = client.post(
-        "/api/v1/questions/", json=_question_payload(tag_name), headers=ACTOR_HEADERS
+        "/api/v1/questions/", json=_question_payload(tag_id), headers=ACTOR_HEADERS
     )
     question_id = create_resp.json()["id"]
 

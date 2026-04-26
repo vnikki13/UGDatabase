@@ -27,6 +27,16 @@ class TagUpdate(TagBase):
     pass
 
 
+class TagRefIn(SQLModel):
+    id: uuid.UUID
+
+
+class QuestionTagRead(SQLModel):
+    id: uuid.UUID
+    name: str
+    deleted_at: datetime | None = None
+
+
 class Tags(SQLModel):
     data: list[Tag]
     count: int
@@ -74,7 +84,7 @@ class Answer_Choice(AnswerChoiceBase, table=True):
 
 
 class QuestionCreate(QuestionBase):
-    tags: list[TagBase] | None = Field(default=None)
+    tags: list[TagRefIn] | None = Field(default=None)
     answerChoices: list[AnswerChoiceBase]
 
 
@@ -87,14 +97,14 @@ class AnswerChoiceResponse(SQLModel):
 
 class QuestionRead(QuestionBase):
     id: uuid.UUID
-    tags: list[TagBase] | None = Field(default=None)
+    tags: list[QuestionTagRead] | None = Field(default=None)
     answerChoices: list[AnswerChoiceResponse]
     deleted_at: datetime | None = None
 
 
 class QuestionReadWithUserAnswer(QuestionBase):
     id: uuid.UUID
-    tags: list[TagBase] | None = Field(default=None)
+    tags: list[QuestionTagRead] | None = Field(default=None)
     answerChoices: list[AnswerChoiceResponse]
     user_answer_id: uuid.UUID | None = None
     deleted_at: datetime | None = None
@@ -102,7 +112,7 @@ class QuestionReadWithUserAnswer(QuestionBase):
 
 class QuestionUpdate(QuestionBase):
     prompt: str | None = None
-    tags: list[TagBase] | None = None
+    tags: list[TagRefIn] | None = None
     answerChoices: list[AnswerChoiceBase] | None = None
 
 

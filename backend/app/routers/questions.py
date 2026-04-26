@@ -165,15 +165,29 @@ def create_question(
     # Validate and fetch all tags in one query
     tags_dict = {}
     if question_create.tags:
-        tag_names = [tag_data.name for tag_data in question_create.tags]
-        existing_tags = session.exec(select(Tag).where(Tag.name.in_(tag_names))).all()
-        tags_dict = {tag.name: tag for tag in existing_tags}
+        requested_tag_ids = list(
+            dict.fromkeys(tag_data.id for tag_data in question_create.tags)
+        )
+        existing_tags = session.exec(
+            select(Tag).where(Tag.id.in_(requested_tag_ids))
+        ).all()
+        tags_dict = {tag.id: tag for tag in existing_tags}
 
-        # Check if any tags are missing
-        missing_tags = set(tag_names) - set(tags_dict.keys())
+        missing_tags = [
+            str(tag_id) for tag_id in requested_tag_ids if tag_id not in tags_dict
+        ]
         if missing_tags:
             raise HTTPException(
                 status_code=400, detail=f"Tags do not exist: {', '.join(missing_tags)}"
+            )
+
+        deleted_tags = [
+            str(tag.id) for tag in existing_tags if tag.deleted_at is not None
+        ]
+        if deleted_tags:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot attach deleted tags: {', '.join(deleted_tags)}",
             )
 
     # Create question
@@ -191,8 +205,8 @@ def create_question(
     # Batch create question-tag relationships
     if question_create.tags:
         question_tag = [
-            Question_Tag(question_id=question.id, tag_id=tags_dict[tag_data.name].id)
-            for tag_data in question_create.tags
+            Question_Tag(question_id=question.id, tag_id=tag_id)
+            for tag_id in requested_tag_ids
         ]
         session.add_all(question_tag)
 
@@ -297,20 +311,44 @@ def update_question(
 
     # Handle tags - copy from old or use new
     if question_in.tags is not None:
-        tag_names = [tag_data.name for tag_data in question_in.tags]
-        existing_tags = session.exec(select(Tag).where(Tag.name.in_(tag_names))).all()
+        requested_tag_ids = list(
+            dict.fromkeys(tag_data.id for tag_data in question_in.tags)
+        )
+        existing_tags = session.exec(
+            select(Tag).where(Tag.id.in_(requested_tag_ids))
+        ).all()
+        tags_by_id = {tag.id: tag for tag in existing_tags}
 
-        # Validate all tags exist
-        if len(existing_tags) != len(tag_names):
-            found_names = {tag.name for tag in existing_tags}
-            missing = set(tag_names) - found_names
+        missing = [
+            str(tag_id) for tag_id in requested_tag_ids if tag_id not in tags_by_id
+        ]
+        if missing:
             raise HTTPException(
                 status_code=400, detail=f"Tags do not exist: {', '.join(missing)}"
             )
 
-        new_relationships = [
-            Question_Tag(question_id=new_question.id, tag_id=tag.id)
+        old_question_tag = session.exec(
+            select(Question_Tag).where(Question_Tag.question_id == question_id)
+        ).all()
+        old_tag_ids = {qt.tag_id for qt in old_question_tag}
+
+        invalid_deleted_ids = [
+            str(tag.id)
             for tag in existing_tags
+            if tag.deleted_at is not None and tag.id not in old_tag_ids
+        ]
+        if invalid_deleted_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Cannot attach deleted tags not already linked to this question: "
+                    f"{', '.join(invalid_deleted_ids)}"
+                ),
+            )
+
+        new_relationships = [
+            Question_Tag(question_id=new_question.id, tag_id=tag_id)
+            for tag_id in requested_tag_ids
         ]
         session.add_all(new_relationships)
     else:

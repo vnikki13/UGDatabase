@@ -419,7 +419,7 @@ def create_exam(*, session: SessionDep, exam_in: ExamCreate):
 def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
     """
     Create an exam for each member in 'members' with the provided 'questionIds'.
-    Adds 'admin' filter, sets updated_at to now, leaves started_at, completed_at, score, deleted_at empty.
+    Adds 'admin' filter and leaves started_at, completed_at, score, deleted_at empty.
     """
     members = exam_in.member_uuids
     question_ids = exam_in.question_ids
@@ -430,11 +430,10 @@ def create_admin_exams(*, session: SessionDep, exam_in: AdminExamCreate):
         )
 
     responses = []
-    now = datetime.now(UTC)
     for member in members:
         exam = Exam(
             member_id=member,
-            started_at=now,
+            started_at=None,
             updated_at=None,
             completed_at=None,
             score=None,
@@ -507,6 +506,15 @@ def update_exam(*, session: SessionDep, exam_id: uuid.UUID, exam_in: ExamUpdate)
     exam = session.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
+
+    # Require a start timestamp on the first update of admin-created exams.
+    if exam.started_at is None:
+        if exam_in.started_at is None:
+            raise HTTPException(
+                status_code=400,
+                detail="started_at is required for the first exam update",
+            )
+        exam.started_at = exam_in.started_at
 
     # Get all exam questions for this exam
     exam_questions = session.exec(

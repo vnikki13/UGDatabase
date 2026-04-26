@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useAppForm } from '../../hooks/questionForm';
 import { Autocomplete, TextField } from '@mui/material';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { getQuestions, searchMembers, createAdminExam } from '../../api';
 import type { Member, Question, Tag } from '../../types';
 import { useQuery } from '@tanstack/react-query';
@@ -33,6 +33,7 @@ function RouteComponent() {
     const [gridApi, setGridApi] = useState<GridApi<GridRow>>();
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const isClearingSelectionRef = useRef(false);
 
     const { data: questions } = useQuery({
         queryKey: ['questions'],
@@ -85,8 +86,14 @@ function RouteComponent() {
                     question_ids: value.questionIds,
                 });
                 setSuccessMsg('Exam created successfully!');
+                setErrorMsg(null);
+                // Explicitly clear UI/form selections, but ignore the programmatic grid
+                // selection change so validation stays quiet until next user interaction.
+                isClearingSelectionRef.current = true;
                 gridApi?.deselectAll();
                 form.reset();
+                setSearchValue('');
+                setMemberOptions([]);
             } catch (err) {
                 if (err instanceof AxiosError)
                     setErrorMsg(err?.message || 'Failed to create exam.');
@@ -118,7 +125,7 @@ function RouteComponent() {
                         <div style={{ marginBottom: 24 }}>
                             <label style={{ fontWeight: 600, marginBottom: 8, display: 'block' }}>
                                 Select Questions
-                                {state.meta.errors.length > 0 && (
+                                {state.meta.isTouched && state.meta.errors.length > 0 && (
                                     <span style={{ color: '#d32f2f', fontWeight: 400, marginLeft: 8, fontSize: 14 }}>
                                         {state.meta.errors[0]}
                                     </span>
@@ -152,6 +159,10 @@ function RouteComponent() {
                                         setGridApi(params.api);
                                     }}
                                     onSelectionChanged={() => {
+                                        if (isClearingSelectionRef.current) {
+                                            isClearingSelectionRef.current = false;
+                                            return;
+                                        }
                                         const selectedData = gridApi?.getSelectedRows();
                                         const selectedIds = selectedData?.map((row) => row.id) ?? [];
                                         handleChange(selectedIds);

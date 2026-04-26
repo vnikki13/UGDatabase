@@ -16,6 +16,7 @@ interface GridRow {
     name: string;
     created_at: string;
     updated_at: string | null;
+    edit: string;
 }
 
 export function Tags() {
@@ -29,7 +30,7 @@ export function Tags() {
     });
 
     const rowData: GridRow[] = useMemo(
-        () => (data ?? []).map((t) => ({ id: t.id, name: t.name, created_at: t.created_at, updated_at: t.updated_at })),
+        () => (data ?? []).map((t) => ({ id: t.id, name: t.name, created_at: t.created_at, updated_at: t.updated_at, edit: '' })),
         [data],
     );
 

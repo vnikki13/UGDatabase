@@ -37,7 +37,7 @@ export interface AdminCreateExamRequest {
 export interface Exam {
   exam_id: string
   member_id: string
-  started_at: string
+  started_at: string | null
   question_count: number
   tags: Tag[] | null
   filters: string[]

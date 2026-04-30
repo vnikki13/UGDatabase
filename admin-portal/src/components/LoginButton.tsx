@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useAuth } from '../auth'
 
-const dashboard = '/' as const
+const dashboard = '/dashboard' as const
 
 export const LoginButton = () => {
     const auth = useAuth()
@@ -36,7 +36,7 @@ export const LoginButton = () => {
                 onError={handleError}
             />
             {showError && (
-                <Alert sx={{margin: 5}} severity="error" onClose={() => setShowError(false)}>
+                <Alert sx={{ margin: 5 }} severity="error" onClose={() => setShowError(false)}>
                     You do not have permission to access this dashboard.
                 </Alert>
             )}
